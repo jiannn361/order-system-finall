@@ -43,27 +43,23 @@
             const [inputPwd, setInputPwd] = useState('');
             const [globalNote, setGlobalNote] = useState('');
             
-            // ★★★ 已更新為您的 ID ★★★
+            // ★★★ 設定區 (請修改這裡) ★★★
+            // 1. 您的 LIFF ID
             const LIFF_ID = "2008979082-w7Tz842F"; 
-            const GAS_URL = "https://script.google.com/macros/s/AKfycbwllHK_C8XKGg25IsmhNVWgk-wrRO0ihBGlj0XEuhhUecGDL0aagVfDTY-bKpG7kpT5SA/exec"; 
+            
+            // 2. 您的 Google Apps Script 網址 (結尾是 /exec)
+            const GAS_URL = "https://script.google.com/macros/s/您的GoogleDeploymentID在這裡/exec"; 
 
             useEffect(() => {
-                // 初始化 LIFF
                 if (window.liff) {
                     liff.init({ liffId: LIFF_ID })
-                        .then(() => {
-                            if (!liff.isLoggedIn()) {
-                                liff.login(); 
-                            }
-                        })
+                        .then(() => { if (!liff.isLoggedIn()) liff.login(); })
                         .catch(e => {
                             console.error(e);
-                            // 這裡會顯示 LIFF 初始化失敗的原因
-                            document.getElementById('loading-msg').innerText = "LIFF 初始化失敗: " + e.message;
+                            document.getElementById('loading-msg').innerText = "LIFF 錯誤: " + e.message;
                         }); 
                 }
 
-                // 抓取菜單
                 fetch(GAS_URL + "?action=getMenu")
                     .then(res => res.json())
                     .then(data => {
@@ -77,12 +73,11 @@
                         }
                     })
                     .catch(e => {
-                        console.error(e);
-                        document.getElementById('loading-msg').innerText = "連線失敗！請檢查 GAS_URL 是否正確";
+                        document.getElementById('loading-msg').innerText = "連線失敗！請檢查 GAS_URL";
                     });
             }, []);
 
-            // 格式化卡片
+            // 格式化卡片 (修改版：字體放大 + 移除按鈕)
             const getFlexMessage = (cart, total, note) => {
                 const itemsRows = cart.map(item => ({
                     type: "box", layout: "vertical", margin: "md",
@@ -90,12 +85,16 @@
                         {
                             type: "box", layout: "horizontal",
                             contents: [
-                                { type: "text", text: item.name, size: "sm", color: "#555555", flex: 6, wrap: true },
-                                { type: "text", text: `x${item.quantity}`, size: "sm", color: "#111111", align: "center", flex: 2 },
-                                { type: "text", text: `$${item.displayPrice}`, size: "sm", color: "#111111", align: "end", flex: 3 }
+                                // 餐點名稱：放大到 lg，加粗
+                                { type: "text", text: item.name, size: "lg", weight: "bold", color: "#333333", flex: 6, wrap: true },
+                                // 數量：放大到 md
+                                { type: "text", text: `x${item.quantity}`, size: "md", color: "#111111", align: "center", flex: 2 },
+                                // 金額：放大到 md
+                                { type: "text", text: `$${item.displayPrice}`, size: "md", color: "#111111", align: "end", flex: 3 }
                             ]
                         },
-                        item.customs && { type: "text", text: `└ ${item.customs}`, size: "xs", color: "#aaaaaa", wrap: true, margin: "none", offsetStart: "md" }
+                        // 客製化選項：放大到 sm
+                        item.customs && { type: "text", text: `└ ${item.customs}`, size: "sm", color: "#888888", wrap: true, margin: "xs", offsetStart: "md" }
                     ].filter(Boolean)
                 }));
 
@@ -104,25 +103,29 @@
                     body: {
                         type: "box", layout: "vertical",
                         contents: [
-                            { type: "text", text: "訂單確認", weight: "bold", color: "#1DB446", size: "sm" },
-                            { type: "text", text: shopState.name, weight: "bold", size: "xl", margin: "md" },
+                            { type: "text", text: "訂單確認", weight: "bold", color: "#1DB446", size: "md" },
+                            // 店名：超大號字體
+                            { type: "text", text: shopState.name, weight: "bold", size: "xxl", margin: "md" },
+                            { type: "text", text: "狀態：等待店家確認 ✅", weight: "bold", size: "md", color: "#ea580c", align: "center", margin: "sm" },
                             { type: "separator", margin: "lg" },
+                            // 訂單內容區塊
                             { type: "box", layout: "vertical", margin: "lg", contents: itemsRows },
                             { type: "separator", margin: "lg" },
                             {
                                 type: "box", layout: "horizontal", margin: "lg",
                                 contents: [
-                                    { type: "text", text: "總金額", size: "md", color: "#555555", weight: "bold" },
-                                    { type: "text", text: `$${total}`, size: "xl", color: "#ea580c", align: "end", weight: "bold" }
+                                    { type: "text", text: "總金額", size: "lg", color: "#555555", weight: "bold" },
+                                    // 總金額：超大號橘色字體 (3xl)
+                                    { type: "text", text: `$${total}`, size: "3xl", color: "#ea580c", align: "end", weight: "bold" }
                                 ]
                             },
-                            note ? { type: "text", text: `備註：${note}`, size: "xs", color: "#ea580c", margin: "md" } : { type: "spacer" }
-                        ]
-                    },
-                    footer: {
-                        type: "box", layout: "vertical", spacing: "sm",
-                        contents: [
-                            { type: "button", style: "secondary", height: "sm", action: { type: "uri", label: "查看訂單", uri: "https://liff.line.me/" + LIFF_ID } }
+                            note ? { 
+                                type: "box", layout: "vertical", margin: "lg", backgroundColor: "#fdf2f8", cornerRadius: "md", paddingAll: "md",
+                                contents: [
+                                    { type: "text", text: "備註：", size: "sm", color: "#ea580c", weight: "bold" },
+                                    { type: "text", text: note, size: "md", color: "#333333", wrap: true }
+                                ]
+                            } : { type: "spacer" }
                         ]
                     }
                 };
@@ -136,7 +139,6 @@
                 const total = cart.reduce((s, i) => s + i.displayPrice, 0);
                 const flexMsg = getFlexMessage(cart, total, globalNote);
                 
-                // 保底文字訊息
                 const clientTime = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
                 let textMsg = `📋 新訂單 ${clientTime}\n----------------\n`;
                 cart.forEach(i => textMsg += `${i.name} x${i.quantity} ${i.customs ? '('+i.customs+')' : ''}\n`);
@@ -144,7 +146,6 @@
                 if(globalNote) textMsg += `\n備註：${globalNote}`;
 
                 try {
-                    // 1. 送到後台
                     const payload = JSON.stringify({ cart, total, globalNote, action:"submit" });
                     
                     await fetch(GAS_URL, { 
@@ -153,23 +154,16 @@
                         headers: { "Content-Type": "text/plain;charset=utf-8" }
                     });
                     
-                    // 2. 傳送 LINE 訊息
                     let sent = false;
                     if (liff.isInClient()) {
                         try {
-                            // 嘗試 Plan A: 直接傳送
                             await liff.sendMessages([{ type: 'flex', altText: `🍱 新訂單 $${total}`, contents: flexMsg }]);
                             liff.closeWindow(); 
                             sent = true;
                         } catch (msgError) {
                             console.log("Direct send failed", msgError);
+                            if (msgError.code === "403") alert("⚠️ 請授權傳送訊息權限");
                             
-                            // 針對權限錯誤的特別提示
-                            if (msgError.code === "403" || msgError.message.includes("permission")) {
-                                alert("⚠️ 需要您的授權才能傳送訂單！\n\n請在接下來的畫面中點選「許可」即可。");
-                            }
-
-                            // 嘗試 Plan B: 選人視窗 (如果權限不足，這個最有效)
                             if (liff.isApiAvailable('shareTargetPicker')) {
                                 const res = await liff.shareTargetPicker([{ type: 'flex', altText: `🍱 新訂單 $${total}`, contents: flexMsg }]);
                                 if (res) { liff.closeWindow(); sent = true; }
@@ -177,7 +171,6 @@
                         }
                     }
 
-                    // 3. 終極保底 (如果上面都失敗，用 LINE 開啟文字)
                     if (!sent) {
                         alert("✅ 訂單已建立！\n請點擊「確定」開啟 LINE 傳送給店家。");
                         window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(textMsg);
@@ -186,7 +179,7 @@
                     setCart([]); setShowCart(false);
 
                 } catch(e) {
-                    alert("⚠️ 傳送發生錯誤: " + e.message + "\n(系統將開啟 LINE 視窗協助您傳送文字訂單)");
+                    alert("⚠️ 傳送發生錯誤，將改用文字傳送");
                     window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(textMsg);
                 } finally {
                     if(btn) { btn.innerText = "送出訂單"; btn.disabled = false; }
@@ -201,17 +194,28 @@
                     setShopState(prev => ({ ...prev, isOpen: (status === 'Y') }));
                     alert("指令已發送！\n請重新整理頁面確認狀態。");
                     setAdminStep(0);
-                } catch(e) { alert("連線錯誤: " + e.message); }
+                } catch(e) { alert("連線錯誤"); }
                 setIsUpdating(false);
             };
 
-            // ... (購物車邏輯) ...
             const removeFromCart = (index) => {
                 const newCart = cart.filter((_, i) => i !== index);
                 setCart(newCart);
                 if (newCart.length === 0) setShowCart(false);
             };
+
             const addToCart = () => {
+                if (selectedItem.type === '套餐') {
+                    if (!selectedItem.main || selectedItem.main === "") {
+                        alert("❌ 請選擇一種「主食」喔！");
+                        return;
+                    }
+                    if (!selectedItem.soup || selectedItem.soup === "") {
+                        alert("❌ 請選擇一種「湯品/飲品」喔！");
+                        return;
+                    }
+                }
+
                 const addonPrice = (selectedItem.addons || []).length * 10;
                 const totalP = (selectedItem.basePrice + addonPrice) * selectedItem.quantity;
                 const customs = [
@@ -221,9 +225,11 @@
                     ...(selectedItem.addons || []),
                     selectedItem.itemNote ? `備註:${selectedItem.itemNote}` : ''
                 ].filter(Boolean);
+                
                 setCart([...cart, { ...selectedItem, displayPrice: totalP, customs: customs.join(' / ') }]);
-                setSelectedItem(null);
+                setSelectedItem(null); 
             };
+
             const showExtras = selectedItem && (selectedItem.type === '套餐' || selectedItem.name.includes('飯') || selectedItem.name.includes('麵'));
 
             return (
