@@ -121,7 +121,7 @@
                 return all;
             }, [menuData, activeCategory]);
 
-            // 產生漂亮卡片 (已修正語法錯誤)
+            // 產生漂亮卡片
             const getFlexMessage = (cart, total, note, pDate, pTime) => {
                 const itemsRows = cart.map(item => ({
                     type: "box", layout: "vertical", margin: "md",
@@ -144,7 +144,6 @@
                         type: "box", layout: "vertical",
                         contents: [
                             { type: "text", text: "訂單確認", weight: "bold", color: "#1DB446", size: "sm" },
-                            // ✅ 這裡修正了：補上了 text: 
                             { type: "text", text: shopState.name, weight: "bold", size: "xl", margin: "md" },
                             { 
                                 type: "box", layout: "vertical", margin: "md", backgroundColor: "#fff7ed", cornerRadius: "md", paddingAll: "md",
@@ -289,7 +288,10 @@
                         <div className="text-sm text-orange-800 font-medium leading-relaxed space-y-1">
                             {shopState.notices && shopState.notices.length > 0 && shopState.notices.join('').trim() !== ''
                                 ? shopState.notices.map((n, i) => n.trim() ? <div key={i}>• {n.trim()}</div> : null)
-                                : <div>• 僅提供現金支付，取貨時付款|自取地點:京品茶與咖啡農場</div>
+                                : <div>
+                                    <div>✿ 僅提供現金支付，取貨時付款</div>
+                                    <div>✿ 自取地點:京品茶與咖啡農場</div>
+                                  </div>
                             }
                         </div>
                     </div>
@@ -426,8 +428,8 @@
                     )}
 
                     {adminStep > 0 && (
-                        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 bg-gray-900/60 backdrop-blur-sm" onClick={() => setAdminStep(0)}>
-                            <div className="bg-white w-full max-w-sm rounded-[32px] p-8 text-center space-y-6 shadow-2xl" onClick={e=>e.stopPropagation()}>
+                        <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-8 backdrop-blur-md" onClick={() => setAdminStep(0)}>
+                            <div className="bg-white w-full p-8 rounded-[2.5rem] text-center space-y-5" onClick={e=>e.stopPropagation()}>
                                 <h2 className="font-black text-2xl text-gray-900">後台管理</h2>
                                 {isUpdating ? (
                                     <div className="py-8 space-y-4 text-orange-600 font-bold">
