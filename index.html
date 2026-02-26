@@ -280,12 +280,19 @@
                         <button onClick={() => setAdminStep(1)} className="absolute right-6 bottom-4 w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors border border-gray-200"><Icon name="Settings" /></button>
                     </header>
 
-                    {shopState.notices && shopState.notices.length > 0 && (
-                        <div className="mx-5 mt-5 mb-2 bg-orange-50/80 border border-orange-100/50 rounded-2xl p-4 flex items-start gap-3">
-                            <div className="text-orange-500 mt-0.5 shrink-0"><Icon name="Volume2" size={18}/></div>
-                            <div className="text-sm text-orange-800 font-medium">{shopState.notices.map((n, i) => <div key={i}>{n.trim()}</div>)}</div>
+                    {/* 訂餐須知區塊 (固定顯示) */}
+                    <div className="mx-5 mt-5 mb-2 p-5 bg-orange-50 rounded-2xl border border-orange-100 shadow-sm">
+                        <div className="flex items-center gap-2 mb-2 text-orange-600">
+                            <Icon name="Volume2" size={18}/>
+                            <h2 className="font-black text-base">訂餐須知</h2>
                         </div>
-                    )}
+                        <div className="text-sm text-orange-800 font-medium leading-relaxed space-y-1">
+                            {shopState.notices && shopState.notices.length > 0 && shopState.notices.join('').trim() !== ''
+                                ? shopState.notices.map((n, i) => n.trim() ? <div key={i}>• {n.trim()}</div> : null)
+                                : <div>• 僅提供現金支付，取貨時付款|自取地點:京品茶與咖啡農場</div>
+                            }
+                        </div>
+                    </div>
 
                     {/* 2. 分類按鈕改為置中 (加入 justify-center) */}
                     <div className="px-5 my-6 sticky top-[92px] z-20 flex justify-center gap-3 overflow-x-auto no-scrollbar pb-2">
@@ -450,6 +457,3 @@
     </script>
 </body>
 </html>
-</html>
-
-
