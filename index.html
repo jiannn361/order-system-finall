@@ -269,14 +269,15 @@
 
             return (
                 <div className="max-w-md mx-auto min-h-screen pb-32 bg-white relative">
-                    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100 px-6 pt-10 pb-4 flex justify-between items-center">
-                        <div>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1 ${shopState.isOpen ? 'text-green-600' : 'text-red-500'}`}>
+                    {/* 1. 標題與營業狀態改為置中 */}
+                    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100 px-6 pt-10 pb-4 flex justify-center items-center relative">
+                        <div className="flex flex-col items-center">
+                            <span className={`text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-1 ${shopState.isOpen ? 'text-green-600' : 'text-red-500'}`}>
                                 <Icon name="Clock" size={12}/> {shopState.isOpen ? '營業中' : '休息中'}
                             </span>
-                            <h1 className="text-2xl font-black text-gray-900">{shopState.name}</h1>
+                            <h1 className="text-2xl font-black text-gray-900 text-center">{shopState.name}</h1>
                         </div>
-                        <button onClick={() => setAdminStep(1)} className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400"><Icon name="Settings" /></button>
+                        <button onClick={() => setAdminStep(1)} className="absolute right-6 bottom-4 w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors border border-gray-200"><Icon name="Settings" /></button>
                     </header>
 
                     {shopState.notices && shopState.notices.length > 0 && (
@@ -286,7 +287,8 @@
                         </div>
                     )}
 
-                    <div className="px-5 my-6 sticky top-[92px] z-20 flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                    {/* 2. 分類按鈕改為置中 (加入 justify-center) */}
+                    <div className="px-5 my-6 sticky top-[92px] z-20 flex justify-center gap-3 overflow-x-auto no-scrollbar pb-2">
                         {[
                             {id:'all', label:'全部', icon:'LayoutGrid'},
                             {id:'combo', label:'套餐', icon:'Package'},
@@ -345,8 +347,26 @@
                                             <div className="grid grid-cols-2 gap-3"><p className="col-span-2 text-sm font-bold">湯品</p>{selectedItem.soupOptions.map(s=><button key={s} onClick={()=>setSelectedItem({...selectedItem, soup:s})} className={`py-3 rounded-xl border-2 text-sm font-bold ${selectedItem.soup===s?'border-orange-500 bg-orange-50 text-orange-700':'border-transparent bg-gray-50'}`}>{s}</button>)}</div>
                                         </>
                                     )}
-                                    {showExtras && <div className="flex gap-3"><p className="w-full text-sm font-bold">辣度</p>{['不辣','小辣','大辣'].map(s=><button key={s} onClick={()=>setSelectedItem({...selectedItem, spicy:s})} className={`flex-1 py-3 rounded-xl border-2 text-sm font-bold ${selectedItem.spicy===s?'border-orange-500 bg-orange-50 text-orange-700':'border-transparent bg-gray-50'}`}>{s}</button>)}</div>}
-                                    {showExtras && <div className="flex gap-3"><p className="w-full text-sm font-bold">加購</p><button onClick={()=>{const t=selectedItem.name.includes('麵')?'加麵':'加飯';const h=selectedItem.addons.includes(t);setSelectedItem({...selectedItem, addons:h?selectedItem.addons.filter(a=>a!==t):[...selectedItem.addons,t]})}} className={`flex-1 py-3 rounded-xl border-2 text-sm font-bold ${selectedItem.addons.includes(selectedItem.name.includes('麵')?'加麵':'加飯')?'border-gray-800 bg-gray-800 text-white':'border-transparent bg-gray-50'}`}>{selectedItem.name.includes('麵')?'加麵':'加飯'}</button><button onClick={()=>{const h=selectedItem.addons.includes('加菜');setSelectedItem({...selectedItem, addons:h?selectedItem.addons.filter(a=>a!=='加菜'):[...selectedItem.addons,'加菜']})}} className={`flex-1 py-3 rounded-xl border-2 text-sm font-bold ${selectedItem.addons.includes('加菜')?'border-gray-800 bg-gray-800 text-white':'border-transparent bg-gray-50'}`}>加菜</button></div>}
+                                    
+                                    {/* 3. 辣度與加購選項改為漂亮的橫列排版 */}
+                                    {showExtras && (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-sm font-bold text-gray-500 w-10 shrink-0">辣度</div>
+                                                <div className="flex flex-1 gap-2">
+                                                    {['不辣','小辣','大辣'].map(s=><button key={s} onClick={()=>setSelectedItem({...selectedItem, spicy:s})} className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${selectedItem.spicy===s?'border-orange-500 bg-orange-50 text-orange-700':'border-transparent bg-gray-50 text-gray-600'}`}>{s}</button>)}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-sm font-bold text-gray-500 w-10 shrink-0">加購</div>
+                                                <div className="flex flex-1 gap-2">
+                                                    <button onClick={()=>{const t=selectedItem.name.includes('麵')?'加麵':'加飯';const h=selectedItem.addons.includes(t);setSelectedItem({...selectedItem, addons:h?selectedItem.addons.filter(a=>a!==t):[...selectedItem.addons,t]})}} className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${selectedItem.addons.includes(selectedItem.name.includes('麵')?'加麵':'加飯')?'border-gray-800 bg-gray-800 text-white':'border-transparent bg-gray-50 text-gray-600'}`}>{selectedItem.name.includes('麵')?'加麵':'加飯'}</button>
+                                                    <button onClick={()=>{const h=selectedItem.addons.includes('加菜');setSelectedItem({...selectedItem, addons:h?selectedItem.addons.filter(a=>a!=='加菜'):[...selectedItem.addons,'加菜']})}} className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${selectedItem.addons.includes('加菜')?'border-gray-800 bg-gray-800 text-white':'border-transparent bg-gray-50 text-gray-600'}`}>加菜</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <textarea placeholder="備註..." className="w-full p-4 bg-gray-50 rounded-xl text-sm outline-none border border-gray-200" rows="2" value={selectedItem.itemNote||''} onChange={e=>setSelectedItem({...selectedItem, itemNote:e.target.value})} />
                                 </div>
                                 <div className="p-5 border-t border-gray-100">
@@ -429,7 +449,7 @@
         root.render(<App />);
     </script>
 </body>
-</html></script>
-</body>
 </html>
+</html>
+
 
