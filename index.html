@@ -177,6 +177,16 @@
                     return; 
                 }
 
+                // 🌟 新增：15分鐘防呆檢查機制
+                const selectedDateTime = new Date(`${pickupDate}T${pickupTime}`);
+                const now = new Date();
+                const minAllowableTime = new Date(now.getTime() + 15 * 60000); // 加上 15 分鐘
+
+                if (selectedDateTime < minAllowableTime) {
+                    alert("❌ 為了有充足時間為您準備餐點，取餐時間請至少選擇「15分鐘」之後！");
+                    return; // 終止送單
+                }
+
                 const btn = document.getElementById("submit-btn");
                 if(btn) { btn.innerText = "處理中..."; btn.disabled = true; }
 
@@ -289,8 +299,8 @@
                             {shopState.notices && shopState.notices.length > 0 && shopState.notices.join('').trim() !== ''
                                 ? shopState.notices.map((n, i) => n.trim() ? <div key={i}>• {n.trim()}</div> : null)
                                 : <div>
-                                    <div>✿ 僅提供現金支付，取貨時付款</div>
-                                    <div>✿ 自取地點:京品茶與咖啡農場</div>
+                                    <div>• 僅提供現金支付，取貨時付款</div>
+                                    <div>• 自取地點:京品茶與咖啡農場</div>
                                   </div>
                             }
                         </div>
