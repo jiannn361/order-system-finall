@@ -44,6 +44,12 @@
             const [globalNote, setGlobalNote] = useState('');
             const [isInClient, setIsInClient] = useState(false);
 
+            // 新增：日期與時間狀態
+            const tzOffset = (new Date()).getTimezoneOffset() * 60000; 
+            const localISODate = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 10);
+            const [pickupDate, setPickupDate] = useState(localISODate);
+            const [pickupTime, setPickupTime] = useState('');
+
             // ★ 確認 ID 與 GAS URL 無誤
             const LIFF_ID = "2008979082-w7Tz842F"; 
             const GAS_URL = "https://script.google.com/macros/s/AKfycbw7GHuyai-Nik51gf0prMzdtCC9bRaYnLl2DwpU5tAapcP8aaMP0mi5-2t1mI_tkC4CXA/exec";
@@ -121,9 +127,10 @@
                 setIsUpdating(false);
             };
 
-            const getTextOrder = (cart, total, note, timeStr) => {
+            const getTextOrder = (cart, total, note, timeStr, pDate, pTime) => {
                 let msg = `📋 新訂單 #${new Date().getTime().toString().slice(-4)}\n`;
                 msg += `⏰ 下單時間：${timeStr}\n`; 
+                msg += `🕒 取餐時間：${pDate} ${pTime}\n`;
                 msg += `----------------\n`;
                 cart.forEach(item => {
                     msg += `${item.name} x${item.quantity} $${item.displayPrice}\n`;
@@ -135,7 +142,7 @@
                 return msg;
             };
 
-            const getFlexMessage = (cart, total, note, timeStr) => {
+            const getFlexMessage = (cart, total, note, timeStr, pDate, pTime) => {
                 const orderId = new Date().getTime().toString().slice(-6);
                 
                 const itemsRows = cart.map(item => ({
@@ -163,6 +170,14 @@
                             { type: "text", text: "新訂單 (自取)", weight: "bold", color: "#0044aa", size: "xl", align: "center" },
                             { type: "text", text: orderId, weight: "bold", size: "3xl", align: "center", margin: "md", color: "#333333" },
                             { type: "text", text: `訂單編號：#${orderId}`, size: "xs", color: "#aaaaaa", align: "center" },
+                            { type: "separator", margin: "lg" },
+                            { 
+                                type: "box", layout: "vertical", margin: "md", backgroundColor: "#fff7ed", cornerRadius: "md", paddingAll: "md",
+                                contents: [
+                                    { type: "text", text: "🕒 預定取餐時間", size: "xs", color: "#ea580c", weight: "bold" },
+                                    { type: "text", text: `${pDate} ${pTime}`, size: "lg", color: "#333333", weight: "bold", margin: "sm" }
+                                ]
+                            },
                             { type: "separator", margin: "lg" },
                             { type: "box", layout: "vertical", margin: "lg", contents: itemsRows },
                             { type: "separator", margin: "lg" },
@@ -198,22 +213,38 @@
             const submitOrder = async () => {
                 if (cart.length === 0) return;
                 
+                // 🌟 新增：取餐時間與 15 分鐘防呆檢查
+                if (!pickupDate || !pickupTime) { 
+                    alert("❌ 請選擇「預定取餐的日期與時間」！"); 
+                    return; 
+                }
+
+                const selectedDateTime = new Date(`${pickupDate}T${pickupTime}`);
+                const now = new Date();
+                const minAllowableTime = new Date(now.getTime() + 15 * 60000); 
+
+                if (selectedDateTime < minAllowableTime) {
+                    alert("❌ 為了有充足時間為您準備餐點，取餐時間請至少選擇「15分鐘」之後！");
+                    return; 
+                }
+
                 const btn = document.getElementById("submit-btn");
                 const originalText = btn ? btn.innerText : "";
                 if(btn) { btn.innerText = "處理中..."; btn.disabled = true; }
 
                 const clientTime = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
                 const total = cart.reduce((s, i) => s + i.displayPrice, 0);
-                const flexMsg = getFlexMessage(cart, total, globalNote, clientTime);
-                const textMsg = getTextOrder(cart, total, globalNote, clientTime);
+                const flexMsg = getFlexMessage(cart, total, globalNote, clientTime, pickupDate, pickupTime);
+                const textMsg = getTextOrder(cart, total, globalNote, clientTime, pickupDate, pickupTime);
 
                 forceCopy(textMsg);
                 
                 try {
+                    const backendNote = `[取餐:${pickupDate} ${pickupTime}] ${globalNote}`;
                     await fetch(GAS_URL, { 
                         method: 'POST', 
                         mode: 'no-cors', 
-                        body: JSON.stringify({ cart, total, globalNote, clientTime, action:"submit" }) 
+                        body: JSON.stringify({ cart, total, globalNote: backendNote, clientTime, action:"submit" }) 
                     });
                     
                     if (liff.isInClient()) {
@@ -327,6 +358,11 @@
                                         </div>
                                     ))}
                                     <div className="pt-4 border-t">
+                                        <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase">預定取餐時間 <span className="text-red-500">*</span></p>
+                                        <div className="flex gap-3 mb-4">
+                                            <input type="date" className="flex-1 p-3 bg-gray-50 rounded-xl text-sm border outline-none font-bold text-gray-700" value={pickupDate} onChange={e=>setPickupDate(e.target.value)} />
+                                            <input type="time" className="flex-1 p-3 bg-gray-50 rounded-xl text-sm border outline-none font-bold text-gray-700" value={pickupTime} onChange={e=>setPickupTime(e.target.value)} />
+                                        </div>
                                         <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase">整單備註</p>
                                         <textarea className="w-full p-4 bg-gray-50 rounded-2xl text-sm border outline-none" placeholder="輸入需求..." value={globalNote} onChange={e=>setGlobalNote(e.target.value)} />
                                     </div>
