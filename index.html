@@ -36,14 +36,6 @@
 
     <div id="root" style="display:none;"></div>
 
-    <!-- 捕捉致命錯誤，防止白畫面死當 -->
-    <script>
-        window.onerror = function(msg) {
-            var loader = document.getElementById('loading-msg');
-            if(loader) loader.innerText = "系統遇到小障礙：" + msg;
-        };
-    </script>
-
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
         
@@ -67,7 +59,6 @@
             const [shopState, setShopState] = useState({ name: "連線中...", isOpen: false, notices: [] });
             const [menuData, setMenuData] = useState({ combos: [], items: [] });
             const [cart, setCart] = useState([]);
-            
             const [activeCategory, setActiveCategory] = useState('all');
             const [selectedItem, setSelectedItem] = useState(null);
             const [showCart, setShowCart] = useState(false); 
@@ -75,6 +66,7 @@
             const [inputPwd, setInputPwd] = useState('');
             const [isUpdating, setIsUpdating] = useState(false);
             const [globalNote, setGlobalNote] = useState('');
+            const [isInClient, setIsInClient] = useState(true); // 判斷是否在 LINE 內
             
             // 日期與時間預設值
             const tzOffset = (new Date()).getTimezoneOffset() * 60000; 
@@ -82,26 +74,25 @@
             const [pickupDate, setPickupDate] = useState(localISODate);
             const [pickupTime, setPickupTime] = useState('');
 
-            // ★★★ 設定區 (已經幫您填好) ★★★
+            // ★★★ 設定區 ★★★
             const LIFF_ID = "2008979082-w7Tz842F"; 
-            const GAS_URL = "https://script.google.com/macros/s/AKfycbwllHK_C8XKGg25IsmhNVWgk-wrRO0ihBGlj0XEuhhUecGDL0aagVfDTY-bKpG7kpT5SA/exec"; 
+            const GAS_URL = "https://script.google.com/macros/s/AKfycbyLIGb2gSg6fNxoVmWth7x5VvgJv0EhdNEcenGX-0ZVQ4sHZHej6VP_GYO-iE_BmwrZ/exec"; 
 
             // 初始化與抓取資料
             useEffect(() => {
                 if (window.liff) {
                     liff.init({ liffId: LIFF_ID }).then(() => {
+                        setIsInClient(liff.isInClient()); // 記錄使用環境
                         if (!liff.isLoggedIn() && liff.isInClient()) liff.login();
                     }).catch(e => console.error("LIFF Error", e));
                 }
 
-                // 透過 Fetch 抓取 Google 試算表資料
                 fetch(GAS_URL + "?action=getMenu")
                     .then(res => res.json())
                     .then(data => {
                         if (data.status === "success") {
                             setShopState(data.shop);
                             setMenuData(data.menu);
-                            // 隱藏 Loading 畫面
                             document.getElementById('loading').style.display = 'none';
                             document.getElementById('root').style.display = 'block';
                         } else {
@@ -121,49 +112,68 @@
                 return all;
             }, [menuData, activeCategory]);
 
-            // 產生漂亮卡片
+            // 💯 安全重構：保證 LINE 審核通過的 Flex Message
             const getFlexMessage = (cart, total, note, pDate, pTime) => {
-                const itemsRows = cart.map(item => ({
-                    type: "box", layout: "vertical", margin: "md",
-                    contents: [
+                const itemsRows = cart.map(item => {
+                    const rowContents = [
                         {
                             type: "box", layout: "horizontal",
                             contents: [
-                                { type: "text", text: item.name, size: "md", weight: "bold", color: "#333333", flex: 6, wrap: true },
+                                { type: "text", text: String(item.name), size: "md", weight: "bold", color: "#333333", flex: 6, wrap: true },
                                 { type: "text", text: `x${item.quantity}`, size: "sm", color: "#666666", align: "center", flex: 2 },
                                 { type: "text", text: `$${item.displayPrice}`, size: "sm", weight: "bold", color: "#ea580c", align: "end", flex: 3 }
                             ]
-                        },
-                        item.customs && { type: "text", text: `└ ${item.customs}`, size: "xs", color: "#aaaaaa", wrap: true, margin: "none", offsetStart: "md" }
-                    ].filter(Boolean)
-                }));
+                        }
+                    ];
+                    
+                    // 如果有客製化，安全推入陣列 (完全移除違規的 offsetStart)
+                    if (item.customs) {
+                        rowContents.push({ 
+                            type: "text", text: `└ ${item.customs}`, size: "xs", color: "#aaaaaa", wrap: true, margin: "sm" 
+                        });
+                    }
+                    
+                    return { type: "box", layout: "vertical", margin: "md", contents: rowContents };
+                });
+
+                // 組合主體 (安全推入備註，避免空 Spacer 報錯)
+                const bodyContents = [
+                    { type: "text", text: "訂單確認", weight: "bold", color: "#1DB446", size: "sm" },
+                    { type: "text", text: String(shopState.name), weight: "bold", size: "xl", margin: "md" },
+                    { 
+                        type: "box", layout: "vertical", margin: "md", backgroundColor: "#fff7ed", cornerRadius: "md", paddingAll: "md",
+                        contents: [
+                            { type: "text", text: "🕒 預定取餐時間", size: "xs", color: "#ea580c", weight: "bold" },
+                            { type: "text", text: `${pDate} ${pTime}`, size: "lg", color: "#333333", weight: "bold", margin: "sm" }
+                        ]
+                    },
+                    { type: "separator", margin: "lg" },
+                    { type: "box", layout: "vertical", margin: "lg", contents: itemsRows },
+                    { type: "separator", margin: "lg", color: "#e5e7eb" },
+                    {
+                        type: "box", layout: "horizontal", margin: "lg",
+                        contents: [
+                            { type: "text", text: "總計", size: "md", color: "#6b7280", weight: "bold", gravity: "bottom" },
+                            { type: "text", text: `$${total}`, size: "2xl", color: "#ea580c", align: "end", weight: "bold" }
+                        ]
+                    }
+                ];
+
+                if (note) {
+                    bodyContents.push({
+                        type: "box", layout: "vertical", margin: "lg", backgroundColor: "#fdf2f8", cornerRadius: "md", paddingAll: "md",
+                        contents: [
+                            { type: "text", text: "備註：", size: "xs", color: "#ea580c", weight: "bold" },
+                            { type: "text", text: String(note), size: "sm", color: "#333333", wrap: true }
+                        ]
+                    });
+                }
 
                 return {
                     type: "bubble",
                     body: {
                         type: "box", layout: "vertical",
-                        contents: [
-                            { type: "text", text: "訂單確認", weight: "bold", color: "#1DB446", size: "sm" },
-                            { type: "text", text: shopState.name, weight: "bold", size: "xl", margin: "md" },
-                            { 
-                                type: "box", layout: "vertical", margin: "md", backgroundColor: "#fff7ed", cornerRadius: "md", paddingAll: "md",
-                                contents: [
-                                    { type: "text", text: "🕒 預定取餐時間", size: "xs", color: "#ea580c", weight: "bold" },
-                                    { type: "text", text: `${pDate} ${pTime}`, size: "lg", color: "#333333", weight: "bold", margin: "sm" }
-                                ]
-                            },
-                            { type: "separator", margin: "lg" },
-                            { type: "box", layout: "vertical", margin: "lg", contents: itemsRows },
-                            { type: "separator", margin: "lg", color: "#e5e7eb" },
-                            {
-                                type: "box", layout: "horizontal", margin: "lg",
-                                contents: [
-                                    { type: "text", text: "總計", size: "md", color: "#6b7280", weight: "bold", gravity: "bottom" },
-                                    { type: "text", text: `$${total}`, size: "2xl", color: "#ea580c", align: "end", weight: "bold" }
-                                ]
-                            },
-                            note ? { type: "text", text: `備註：${note}`, size: "xs", color: "#ea580c", margin: "md" } : { type: "spacer" }
-                        ]
+                        contents: bodyContents
                     }
                 };
             };
@@ -177,14 +187,14 @@
                     return; 
                 }
 
-                // 🌟 新增：15分鐘防呆檢查機制
+                // 🌟 15分鐘防呆檢查
                 const selectedDateTime = new Date(`${pickupDate}T${pickupTime}`);
                 const now = new Date();
                 const minAllowableTime = new Date(now.getTime() + 15 * 60000); // 加上 15 分鐘
 
                 if (selectedDateTime < minAllowableTime) {
-                    alert("❌ 為了有充足時間為您準備餐點，取餐時間請至少選擇「15分鐘」之後！");
-                    return; // 終止送單
+                    alert("❌ 為了有充足時間準備餐點，取餐時間請至少選擇「15分鐘」之後！");
+                    return; 
                 }
 
                 const btn = document.getElementById("submit-btn");
@@ -208,24 +218,31 @@
                         body: JSON.stringify({ cart, total, globalNote: backendNote, action:"submit" }) 
                     }).catch(e => console.log("GAS Error", e));
                     
-                    // 2. 傳送 LINE
+                    // 2. 傳送 LINE (加入偵測機制，若報錯則跳出提示)
                     let sent = false;
                     if (window.liff && liff.isInClient()) {
                         try {
-                            await liff.sendMessages([{ type: 'flex', altText: `訂單 $${total}`, contents: flexMsg }]);
+                            await liff.sendMessages([{ type: 'flex', altText: `🍱 新訂單 $${total}`, contents: flexMsg }]);
                             sent = true;
                             liff.closeWindow();
                         } catch (err) {
+                            console.log("直接傳送失敗", err);
+                            // 若失敗則啟用選人視窗
                             if (liff.isApiAvailable('shareTargetPicker')) {
-                                const res = await liff.shareTargetPicker([{ type: 'flex', altText: `訂單 $${total}`, contents: flexMsg }]);
-                                if(res) {
-                                    sent = true;
-                                    liff.closeWindow();
+                                try {
+                                    const res = await liff.shareTargetPicker([{ type: 'flex', altText: `🍱 新訂單 $${total}`, contents: flexMsg }]);
+                                    if(res) {
+                                        sent = true;
+                                        liff.closeWindow();
+                                    }
+                                } catch (pickerErr) {
+                                    alert("卡片發生錯誤：" + pickerErr.message + "\n\n將改用純文字傳送！");
                                 }
                             }
                         }
                     }
 
+                    // 3. 外部環境保底機制
                     if (!sent) {
                         alert("訂單已建立！\n請點擊「確定」傳送給店家。");
                         window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(textMsg);
@@ -279,12 +296,13 @@
             return (
                 <div className="max-w-md mx-auto min-h-screen pb-32 bg-white relative">
                     {/* 1. 標題與營業狀態改為置中 */}
-                    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100 px-6 pt-10 pb-4 flex justify-center items-center relative">
+                    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100 px-6 pt-8 pb-4 flex justify-center items-center relative">
                         <div className="flex flex-col items-center">
                             <span className={`text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-1 ${shopState.isOpen ? 'text-green-600' : 'text-red-500'}`}>
                                 <Icon name="Clock" size={12}/> {shopState.isOpen ? '營業中' : '休息中'}
                             </span>
                             <h1 className="text-2xl font-black text-gray-900 text-center">{shopState.name}</h1>
+                            {!isInClient && <div className="text-[10px] text-gray-400 mt-1 bg-gray-100 px-2 py-0.5 rounded-full">(外部瀏覽器測試模式：將以純文字傳送)</div>}
                         </div>
                         <button onClick={() => setAdminStep(1)} className="absolute right-6 bottom-4 w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors border border-gray-200"><Icon name="Settings" /></button>
                     </header>
@@ -300,13 +318,13 @@
                                 ? shopState.notices.map((n, i) => n.trim() ? <div key={i}>• {n.trim()}</div> : null)
                                 : <div>
                                     <div>• 僅提供現金支付，取貨時付款</div>
-                                    <div>• 自取地點:京品茶與咖啡農場</div>
+                                    <div>• 自取地點：京品茶與咖啡農場</div>
                                   </div>
                             }
                         </div>
                     </div>
 
-                    {/* 2. 分類按鈕改為置中 (加入 justify-center) */}
+                    {/* 2. 分類按鈕 */}
                     <div className="px-5 my-6 sticky top-[92px] z-20 flex justify-center gap-3 overflow-x-auto no-scrollbar pb-2">
                         {[
                             {id:'all', label:'全部', icon:'LayoutGrid'},
@@ -380,16 +398,18 @@
                                                 <div className="text-sm font-bold text-gray-500 w-10 shrink-0">加購</div>
                                                 <div className="flex flex-1 gap-2">
                                                     <button onClick={()=>{const t=selectedItem.name.includes('麵')?'加麵':'加飯';const h=selectedItem.addons.includes(t);setSelectedItem({...selectedItem, addons:h?selectedItem.addons.filter(a=>a!==t):[...selectedItem.addons,t]})}} className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${selectedItem.addons.includes(selectedItem.name.includes('麵')?'加麵':'加飯')?'border-gray-800 bg-gray-800 text-white':'border-transparent bg-gray-50 text-gray-600'}`}>{selectedItem.name.includes('麵')?'加麵':'加飯'}</button>
-                                                    <button onClick={()=>{const h=selectedItem.addons.includes('加菜');setSelectedItem({...selectedItem, addons:h?selectedItem.addons.filter(a=>a!=='加菜'):[...selectedItem.addons,'加菜']})}} className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${selectedItem.addons.includes('加菜')?'border-gray-800 bg-gray-800 text-white':'border-transparent bg-gray-50 text-gray-600'}`}>加菜</button>
+                                                    <button onClick={()=>{const h=selectedItem.addons.includes('加菜');setSelectedItem({...selectedItem, addons:h?selectedItem.addons.filter(a=>a!=='加菜'):[...selectedItem.addons, '加菜']})}} className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${selectedItem.addons.includes('加菜')?'border-gray-800 bg-gray-800 text-white':'border-transparent bg-gray-50 text-gray-600'}`}>加菜</button>
                                                 </div>
                                             </div>
                                         </div>
                                     )}
 
-                                    <textarea placeholder="備註..." className="w-full p-4 bg-gray-50 rounded-xl text-sm outline-none border border-gray-200" rows="2" value={selectedItem.itemNote||''} onChange={e=>setSelectedItem({...selectedItem, itemNote:e.target.value})} />
+                                    <textarea placeholder="單品備註 (如：不要蔥、湯分開)" className="w-full p-4 bg-gray-50 rounded-2xl text-sm outline-none border border-gray-200" rows="2" value={selectedItem.itemNote||''} onChange={e=>setSelectedItem({...selectedItem, itemNote:e.target.value})} />
                                 </div>
                                 <div className="p-5 border-t border-gray-100">
-                                    <button onClick={addToCart} className="w-full py-4 bg-orange-600 text-white rounded-full font-bold text-lg shadow-lg active:scale-95">加入購物車</button>
+                                    <button onClick={addToCart} className="w-full py-4 bg-orange-600 text-white rounded-full font-bold text-lg shadow-lg active:scale-95 transition-transform flex justify-center items-center gap-2">
+                                        加入購物車 <span className="font-normal text-orange-200">|</span> ${(selectedItem.basePrice + ((selectedItem.addons||[]).length*10)) * selectedItem.quantity}
+                                    </button>
                                 </div>
                             </div>
                         </div>
