@@ -1,271 +1,236 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>點餐系統</title>
-    
-    <!-- 載入 React 核心 (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    
     <style>
+        .shadow-up { box-shadow: 0 -5px 20px rgba(0,0,0,0.08); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        body { -webkit-tap-highlight-color: transparent; font-family: -apple-system, system-ui, sans-serif; background-color: #f8fafc; }
-        #loading { position: fixed; inset: 0; background: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #ea580c; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
-        .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+        body { -webkit-tap-highlight-color: transparent; }
     </style>
 </head>
-<body class="text-gray-800 antialiased">
-
-    <div id="loading">
-        <div class="spinner"></div>
-        <div class="mt-4 text-lg font-bold text-gray-600" id="loading-text">連線至資料庫中...</div>
-        <div id="loading-msg" class="text-xs text-red-500 mt-2 px-6 text-center"></div>
-        <button onclick="window.location.reload()" class="mt-4 text-xs text-gray-400 underline">重新整理</button>
-    </div>
-
-    <div id="root" style="display:none;"></div>
+<body class="bg-gray-50 text-gray-800">
+    <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect } = React;
         
-        // 內建圖示
-        const Icon = ({ name, size=20, className="" }) => {
-            const icons = {
-                Clock: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-                Settings: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
-                Volume2: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>,
-                LayoutGrid: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>,
-                Package: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>,
-                Coffee: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10 2v2"/><path d="M14 2v2"/><path d="M6 2v2"/><path d="M18 8a4 4 0 0 1 4 4 4 4 0 0 1-4 4h-4.06a4 4 0 0 1-3.75-2.71L10 13a4 4 0 0 1-3.75-2.71L6 10a4 4 0 0 1 4-4h4Z"/><path d="M2 18h20v2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-2Z"/></svg>,
-                Trash2: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>,
-                ShoppingBag: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>,
-                X: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 18 12"/></svg>
-            };
-            return icons[name] || null;
-        };
+        let initMenu = { combos: [], items: [] };
+        let initShop = { name: "載入中...", isOpen: false, notices: [] };
+
+        try {
+            const serverMenu = <?!= menuData ?>;
+            const serverShop = <?!= shopInfo ?>;
+            if (serverMenu) initMenu = serverMenu;
+            if (serverShop) initShop = serverShop;
+        } catch (e) {
+            console.log("本地測試模式");
+        }
 
         const App = () => {
-            const [shopState, setShopState] = useState({ name: "連線中...", isOpen: false, notices: [] });
-            const [menuData, setMenuData] = useState({ combos: [], items: [] });
+            const [shopState, setShopState] = useState(initShop);
             const [cart, setCart] = useState([]);
-            const [activeCategory, setActiveCategory] = useState('all');
             const [selectedItem, setSelectedItem] = useState(null);
             const [showCart, setShowCart] = useState(false); 
             const [adminStep, setAdminStep] = useState(0); 
-            const [inputPwd, setInputPwd] = useState('');
             const [isUpdating, setIsUpdating] = useState(false);
+            const [inputPwd, setInputPwd] = useState('');
             const [globalNote, setGlobalNote] = useState('');
-            const [isInClient, setIsInClient] = useState(true); // 判斷是否在 LINE 內
-            
-            // 日期與時間預設值
-            const tzOffset = (new Date()).getTimezoneOffset() * 60000; 
-            const localISODate = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 10);
-            const [pickupDate, setPickupDate] = useState(localISODate);
-            const [pickupTime, setPickupTime] = useState('');
+            const [isInClient, setIsInClient] = useState(false);
 
-            // ★★★ 設定區 ★★★
-            const LIFF_ID = "2008979082-w7Tz842F"; 
-            const GAS_URL = "https://script.google.com/macros/s/AKfycbw7GHuyai-Nik51gf0prMzdtCC9bRaYnLl2DwpU5tAapcP8aaMP0mi5-2t1mI_tkC4CXA/exec"; 
+            // ★ 請確認此 LIFF ID 與後台一致
+            const LIFF_ID = "2009028310-beYZMAVg"; 
+            const GAS_URL = "https://script.google.com/macros/s/AKfycbyLIGb2gSg6fNxoVmWth7x5VvgJv0EhdNEcenGX-0ZVQ4sHZHej6VP_GYO-iE_BmwrZ/exec";
 
-            // 初始化與抓取資料
-            useEffect(() => {
+            useEffect(() => { 
                 if (window.liff) {
-                    liff.init({ liffId: LIFF_ID }).then(() => {
-                        setIsInClient(liff.isInClient()); // 記錄使用環境
-                        if (!liff.isLoggedIn() && liff.isInClient()) liff.login();
-                    }).catch(e => console.error("LIFF Error", e));
+                    liff.init({ liffId: LIFF_ID })
+                        .then(() => {
+                            if (!liff.isLoggedIn()) {
+                                liff.login();
+                            }
+                            setIsInClient(liff.isInClient());
+                        })
+                        .catch(e => {
+                            console.error(e);
+                        }); 
                 }
-
-                fetch(GAS_URL + "?action=getMenu")
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.status === "success") {
-                            setShopState(data.shop);
-                            setMenuData(data.menu);
-                            document.getElementById('loading').style.display = 'none';
-                            document.getElementById('root').style.display = 'block';
-                        } else {
-                            document.getElementById('loading-msg').innerText = "讀取失敗：" + JSON.stringify(data);
-                        }
-                    })
-                    .catch(e => {
-                        document.getElementById('loading-msg').innerText = "連線失敗，請檢查網址或網路狀態。";
-                    });
             }, []);
 
-            const displayItems = useMemo(() => {
-                const all = [...menuData.combos, ...menuData.items];
-                if (activeCategory === 'all') return all;
-                if (activeCategory === 'combo') return menuData.combos;
-                if (activeCategory === 'single') return menuData.items;
-                return all;
-            }, [menuData, activeCategory]);
-
-            // 💯 安全重構：保證 LINE 審核通過的 Flex Message
-            const getFlexMessage = (cart, total, note, pDate, pTime) => {
-                const itemsRows = cart.map(item => {
-                    const rowContents = [
-                        {
-                            type: "box", layout: "horizontal",
-                            contents: [
-                                { type: "text", text: String(item.name), size: "md", weight: "bold", color: "#333333", flex: 6, wrap: true },
-                                { type: "text", text: `x${item.quantity}`, size: "sm", color: "#666666", align: "center", flex: 2 },
-                                { type: "text", text: `$${item.displayPrice}`, size: "sm", weight: "bold", color: "#ea580c", align: "end", flex: 3 }
-                            ]
-                        }
-                    ];
-                    
-                    // 如果有客製化，安全推入陣列 (完全移除違規的 offsetStart)
-                    if (item.customs) {
-                        rowContents.push({ 
-                            type: "text", text: `└ ${item.customs}`, size: "xs", color: "#aaaaaa", wrap: true, margin: "sm" 
-                        });
-                    }
-                    
-                    return { type: "box", layout: "vertical", margin: "md", contents: rowContents };
-                });
-
-                // 組合主體 (安全推入備註，避免空 Spacer 報錯)
-                const bodyContents = [
-                    { type: "text", text: "訂單確認", weight: "bold", color: "#1DB446", size: "sm" },
-                    { type: "text", text: String(shopState.name), weight: "bold", size: "xl", margin: "md" },
-                    { 
-                        type: "box", layout: "vertical", margin: "md", backgroundColor: "#fff7ed", cornerRadius: "md", paddingAll: "md",
-                        contents: [
-                            { type: "text", text: "🕒 預定取餐時間", size: "xs", color: "#ea580c", weight: "bold" },
-                            { type: "text", text: `${pDate} ${pTime}`, size: "lg", color: "#333333", weight: "bold", margin: "sm" }
-                        ]
-                    },
-                    { type: "separator", margin: "lg" },
-                    { type: "box", layout: "vertical", margin: "lg", contents: itemsRows },
-                    { type: "separator", margin: "lg", color: "#e5e7eb" },
-                    {
-                        type: "box", layout: "horizontal", margin: "lg",
-                        contents: [
-                            { type: "text", text: "總計", size: "md", color: "#6b7280", weight: "bold", gravity: "bottom" },
-                            { type: "text", text: `$${total}`, size: "2xl", color: "#ea580c", align: "end", weight: "bold" }
-                        ]
-                    }
-                ];
-
-                if (note) {
-                    bodyContents.push({
-                        type: "box", layout: "vertical", margin: "lg", backgroundColor: "#fdf2f8", cornerRadius: "md", paddingAll: "md",
-                        contents: [
-                            { type: "text", text: "備註：", size: "xs", color: "#ea580c", weight: "bold" },
-                            { type: "text", text: String(note), size: "sm", color: "#333333", wrap: true }
-                        ]
-                    });
+            const forceCopy = (text) => {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).catch(err => console.log("Async copy failed", err));
                 }
-
-                return {
-                    type: "bubble",
-                    body: {
-                        type: "box", layout: "vertical",
-                        contents: bodyContents
-                    }
-                };
-            };
-
-            // 送出訂單
-            const submitOrder = async () => {
-                if (cart.length === 0) return;
-                
-                if (!pickupDate || !pickupTime) { 
-                    alert("❌ 請選擇「預定取餐的日期與時間」！"); 
-                    return; 
-                }
-
-                // 🌟 15分鐘防呆檢查
-                const selectedDateTime = new Date(`${pickupDate}T${pickupTime}`);
-                const now = new Date();
-                const minAllowableTime = new Date(now.getTime() + 15 * 60000); // 加上 15 分鐘
-
-                if (selectedDateTime < minAllowableTime) {
-                    alert("❌ 為了有充足時間準備餐點，取餐時間請至少選擇「15分鐘」之後！");
-                    return; 
-                }
-
-                const btn = document.getElementById("submit-btn");
-                if(btn) { btn.innerText = "處理中..."; btn.disabled = true; }
-
-                const total = cart.reduce((s, i) => s + i.displayPrice, 0);
-                const flexMsg = getFlexMessage(cart, total, globalNote, pickupDate, pickupTime);
-                
-                const clientTime = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
-                let textMsg = `📋 新訂單 ${clientTime}\n🕒 取餐：${pickupDate} ${pickupTime}\n----------------\n`;
-                cart.forEach(i => textMsg += `${i.name} x${i.quantity} ${i.customs ? '('+i.customs+')' : ''}\n`);
-                textMsg += `----------------\n💰 總計：$${total}`;
-                if(globalNote) textMsg += `\n備註：${globalNote}`;
-
                 try {
-                    // 1. 送到 Google 後台
-                    const backendNote = `[取餐:${pickupDate} ${pickupTime}] ${globalNote}`;
-                    fetch(GAS_URL, { 
-                        method: 'POST', 
-                        mode: 'no-cors', 
-                        body: JSON.stringify({ cart, total, globalNote: backendNote, action:"submit" }) 
-                    }).catch(e => console.log("GAS Error", e));
-                    
-                    // 2. 傳送 LINE (加入偵測機制，若報錯則跳出提示)
-                    let sent = false;
-                    if (window.liff && liff.isInClient()) {
-                        try {
-                            await liff.sendMessages([{ type: 'flex', altText: `🍱 新訂單 $${total}`, contents: flexMsg }]);
-                            sent = true;
-                            liff.closeWindow();
-                        } catch (err) {
-                            console.log("直接傳送失敗", err);
-                            // 若失敗則啟用選人視窗
-                            if (liff.isApiAvailable('shareTargetPicker')) {
-                                try {
-                                    const res = await liff.shareTargetPicker([{ type: 'flex', altText: `🍱 新訂單 $${total}`, contents: flexMsg }]);
-                                    if(res) {
-                                        sent = true;
-                                        liff.closeWindow();
-                                    }
-                                } catch (pickerErr) {
-                                    alert("卡片發生錯誤：" + pickerErr.message + "\n\n將改用純文字傳送！");
-                                }
-                            }
-                        }
-                    }
-
-                    // 3. 外部環境保底機制
-                    if (!sent) {
-                        alert("訂單已建立！\n請點擊「確定」傳送給店家。");
-                        window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(textMsg);
-                    }
-                } catch(e) {
-                    window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(textMsg);
-                } finally {
-                    setTimeout(() => {
-                        if(btn) { btn.innerText = "送出訂單"; btn.disabled = false; }
-                        setCart([]); setShowCart(false);
-                    }, 1000);
-                }
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    textArea.style.position = "fixed";
+                    textArea.style.left = "-9999px";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                } catch (err) {}
             };
 
             const toggleStatus = async (status) => {
                 setIsUpdating(true);
                 try {
-                    await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "updateStatus", password: inputPwd, status: status }) });
-                    setShopState(prev => ({ ...prev, isOpen: (status === 'Y') }));
-                    alert("狀態更新指令已發送！\n請重新整理頁面確認。");
-                    setAdminStep(0);
-                } catch(e) { alert("連線錯誤"); }
+                    const response = await fetch(GAS_URL, { 
+                        method: 'POST', 
+                        body: JSON.stringify({ action: "updateStatus", password: inputPwd, status: status }) 
+                    });
+                    const result = await response.text();
+                    if (result.includes("OK") || result.includes("Success")) {
+                        setShopState(prev => ({ ...prev, isOpen: (status === 'Y') }));
+                        alert(status === 'Y' ? "✅ 已切換為：營業中" : "🛑 已切換為：休息中");
+                        setAdminStep(0);
+                    } else if (result.includes("Wrong")) {
+                        alert("❌ 密碼錯誤");
+                    } else {
+                        alert("⚠️ 系統回應：" + result);
+                    }
+                } catch(e) { 
+                    alert("連線不穩，請稍後再試");
+                }
                 setIsUpdating(false);
+            };
+
+            const getTextOrder = (cart, total, note, timeStr) => {
+                let msg = `📋 新訂單 #${new Date().getTime().toString().slice(-4)}\n`;
+                msg += `⏰ 下單時間：${timeStr}\n`; 
+                msg += `----------------\n`;
+                cart.forEach(item => {
+                    msg += `${item.name} x${item.quantity} $${item.displayPrice}\n`;
+                    if(item.customs) msg += `(${item.customs})\n`;
+                });
+                msg += `----------------\n`;
+                msg += `💰 總金額：$${total}\n`;
+                if(note) msg += `📝 備註：${note}\n`;
+                return msg;
+            };
+
+            const getFlexMessage = (cart, total, note, timeStr) => {
+                const orderId = new Date().getTime().toString().slice(-6);
+                
+                const itemsRows = cart.map(item => ({
+                    type: "box", layout: "vertical", margin: "md",
+                    contents: [
+                        {
+                            type: "box", layout: "horizontal",
+                            contents: [
+                                { type: "text", text: String(item.name), size: "sm", color: "#555555", flex: 6, wrap: true },
+                                { type: "text", text: `x${item.quantity}`, size: "sm", color: "#111111", align: "center", flex: 2 },
+                                { type: "text", text: `$${item.displayPrice}`, size: "sm", color: "#111111", align: "end", flex: 3 }
+                            ]
+                        },
+                        item.customs && { 
+                            type: "text", text: `└ ${item.customs}`, size: "xs", color: "#aaaaaa", wrap: true, margin: "none", offsetStart: "md"
+                        }
+                    ].filter(Boolean)
+                }));
+
+                return {
+                    type: "bubble",
+                    body: {
+                        type: "box", layout: "vertical",
+                        contents: [
+                            { type: "text", text: "新訂單 (自取)", weight: "bold", color: "#0044aa", size: "xl", align: "center" },
+                            { type: "text", text: orderId, weight: "bold", size: "3xl", align: "center", margin: "md", color: "#333333" },
+                            { type: "text", text: `訂單編號：#${orderId}`, size: "xs", color: "#aaaaaa", align: "center" },
+                            { type: "separator", margin: "lg" },
+                            { type: "box", layout: "vertical", margin: "lg", contents: itemsRows },
+                            { type: "separator", margin: "lg" },
+                            {
+                                type: "box", layout: "horizontal", margin: "lg",
+                                contents: [
+                                    { type: "text", text: "總金額", size: "md", color: "#555555", weight: "bold" },
+                                    { type: "text", text: `$${total}`, size: "xl", color: "#ea580c", align: "end", weight: "bold" }
+                                ]
+                            },
+                            note ? {
+                                type: "box", layout: "vertical", margin: "lg", backgroundColor: "#fdf2f8", cornerRadius: "md", paddingAll: "md",
+                                contents: [
+                                    { type: "text", text: "整單備註：", size: "xs", color: "#ea580c", weight: "bold" },
+                                    { type: "text", text: String(note), size: "sm", color: "#333333", wrap: true }
+                                ]
+                            } : { type: "spacer" },
+                            { type: "text", text: `下單時間：${timeStr}`, size: "xs", color: "#cccccc", align: "end", margin: "md" }
+                        ]
+                    },
+                    footer: {
+                        type: "box", layout: "vertical", spacing: "sm",
+                        contents: [
+                            {
+                                type: "button", style: "primary", color: "#ea580c", height: "sm",
+                                action: { type: "uri", label: "查看訂單詳情", uri: "https://liff.line.me/" + LIFF_ID }
+                            }
+                        ]
+                    }
+                };
+            };
+
+            const submitOrder = async () => {
+                if (cart.length === 0) return;
+                
+                const btn = document.getElementById("submit-btn");
+                const originalText = btn ? btn.innerText : "";
+                if(btn) { btn.innerText = "處理中..."; btn.disabled = true; }
+
+                const clientTime = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
+                const total = cart.reduce((s, i) => s + i.displayPrice, 0);
+                const flexMsg = getFlexMessage(cart, total, globalNote, clientTime);
+                const textMsg = getTextOrder(cart, total, globalNote, clientTime);
+
+                forceCopy(textMsg);
+                
+                try {
+                    await fetch(GAS_URL, { 
+                        method: 'POST', 
+                        mode: 'no-cors', 
+                        body: JSON.stringify({ cart, total, globalNote, clientTime, action:"submit" }) 
+                    });
+                    
+                    if (liff.isInClient()) {
+                        // 嘗試直接傳送
+                        liff.sendMessages([{ type: 'flex', altText: `🍱 新訂單 $${total}`, contents: flexMsg }])
+                            .then(() => {
+                                liff.closeWindow();
+                            })
+                            .catch(error => {
+                                // 🚨 關鍵：跳出具體的錯誤代碼！
+                                alert("【請截圖回報工程師】\n直接傳送失敗：" + error.message + "\n\n(這通常是因為 chat_message.write 權限未打勾，或是您從非聊天室的地方點擊網址)");
+                                
+                                if (liff.isApiAvailable('shareTargetPicker')) {
+                                    liff.shareTargetPicker([{ type: 'flex', altText: `🍱 新訂單 $${total}`, contents: flexMsg }])
+                                        .then(res => {
+                                            if (res) liff.closeWindow();
+                                            else {
+                                                alert("✅ 訂單已送出至後台！");
+                                                setCart([]);
+                                                setShowCart(false);
+                                            }
+                                        });
+                                }
+                            });
+                    } else {
+                        const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(textMsg)}`;
+                        window.location.href = lineUrl;
+                        setCart([]); 
+                        setShowCart(false);
+                    }
+                } catch(e) { 
+                    alert("⚠️ 系統連線異常，請向店家確認訂單。\n" + e.message); 
+                } finally {
+                    if(btn) { btn.innerText = originalText; btn.disabled = false; }
+                }
             };
 
             const removeFromCart = (index) => {
@@ -275,10 +240,6 @@
             };
 
             const addToCart = () => {
-                if (selectedItem.type === '套餐') {
-                    if(!selectedItem.main) { alert("❌ 請選擇主食"); return; }
-                    if(!selectedItem.soup) { alert("❌ 請選擇湯品"); return; }
-                }
                 const addonPrice = (selectedItem.addons || []).length * 10;
                 const totalP = (selectedItem.basePrice + addonPrice) * selectedItem.quantity;
                 const customs = [
@@ -291,168 +252,154 @@
                 setCart([...cart, { ...selectedItem, displayPrice: totalP, customs: customs.join(' / ') }]);
                 setSelectedItem(null);
             };
-            const showExtras = selectedItem && (selectedItem.type === '套餐' || selectedItem.name.includes('飯') || selectedItem.name.includes('麵'));
+
+            const showExtras = selectedItem && (
+                selectedItem.type === '套餐' || selectedItem.name.includes('飯') || selectedItem.name.includes('麵')
+            );
 
             return (
                 <div className="max-w-md mx-auto min-h-screen pb-32 bg-white relative">
-                    {/* 1. 標題與營業狀態改為置中 */}
-                    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100 px-6 pt-8 pb-4 flex justify-center items-center relative">
-                        <div className="flex flex-col items-center">
-                            <span className={`text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-1 ${shopState.isOpen ? 'text-green-600' : 'text-red-500'}`}>
-                                <Icon name="Clock" size={12}/> {shopState.isOpen ? '營業中' : '休息中'}
-                            </span>
-                            <h1 className="text-2xl font-black text-gray-900 text-center">{shopState.name}</h1>
-                            {!isInClient && <div className="text-[10px] text-gray-400 mt-1 bg-gray-100 px-2 py-0.5 rounded-full">(外部瀏覽器測試模式：將以純文字傳送)</div>}
+                    <header className="p-8 border-b text-center relative">
+                        <h1 className="text-2xl font-black text-gray-800">{shopState.name}</h1>
+                        <div className={`inline-block px-4 py-1 rounded-full text-[10px] text-white mt-2 font-bold transition-colors duration-300 ${shopState.isOpen ? 'bg-green-500':'bg-red-500'}`}>
+                            {shopState.isOpen ? '● 營業中' : '● 休息中'}
                         </div>
-                        <button onClick={() => setAdminStep(1)} className="absolute right-6 bottom-4 w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors border border-gray-200"><Icon name="Settings" /></button>
+                        {!isInClient && <div className="text-[10px] text-gray-400 mt-1">(外部瀏覽器模式：將以文字傳送)</div>}
+                        <button onClick={() => setAdminStep(1)} className="absolute top-8 right-6 text-gray-300 active:text-gray-600">⚙️</button>
                     </header>
 
-                    {/* 訂餐須知區塊 (固定顯示) */}
-                    <div className="mx-5 mt-5 mb-2 p-5 bg-orange-50 rounded-2xl border border-orange-100 shadow-sm">
-                        <div className="flex items-center gap-2 mb-2 text-orange-600">
-                            <Icon name="Volume2" size={18}/>
-                            <h2 className="font-black text-base">訂餐須知</h2>
-                        </div>
-                        <div className="text-sm text-orange-800 font-medium leading-relaxed space-y-1">
-                            {shopState.notices && shopState.notices.length > 0 && shopState.notices.join('').trim() !== ''
-                                ? shopState.notices.map((n, i) => n.trim() ? <div key={i}>• {n.trim()}</div> : null)
-                                : <div>
-                                    <div>• 僅提供現金支付，取貨時付款</div>
-                                    <div>• 自取地點：京品茶與咖啡農場</div>
-                                  </div>
-                            }
-                        </div>
+                    <div className="m-4 p-5 bg-orange-50 rounded-2xl border border-orange-100 text-[13px] text-orange-800 leading-relaxed shadow-sm">
+                        <p className="font-black mb-1">📢 訂餐須知</p>
+                        {shopState.notices && shopState.notices.map((n, i) => <div key={i}>• {n.trim()}</div>)}
                     </div>
 
-                    {/* 2. 分類按鈕 */}
-                    <div className="px-5 my-6 sticky top-[92px] z-20 flex justify-center gap-3 overflow-x-auto no-scrollbar pb-2">
-                        {[
-                            {id:'all', label:'全部', icon:'LayoutGrid'},
-                            {id:'combo', label:'套餐', icon:'Package'},
-                            {id:'single', label:'單點', icon:'Coffee'}
-                        ].map(tab => (
-                            <button key={tab.id} onClick={() => setActiveCategory(tab.id)} 
-                                className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-sm transition-all shadow-sm ${activeCategory===tab.id ? 'bg-orange-600 text-white scale-105' : 'bg-white text-gray-500 border border-gray-100'}`}>
-                                <Icon name={tab.icon} size={18}/> {tab.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="px-5 space-y-4">
-                        {displayItems.map(item => (
-                            <div key={item.id} onClick={()=>setSelectedItem({...item, quantity:1, basePrice:item.price, addons:[], spicy:'不辣', main:'', soup:'', itemNote:''})} 
-                                 className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 flex justify-between items-center active:scale-95 transition-transform">
+                    <div className="p-4 space-y-4">
+                        {[...initMenu.combos, ...initMenu.items].map(item => (
+                            <div key={item.id} onClick={()=>setSelectedItem({...item, quantity:1, basePrice:item.price, addons:[], spicy:'不辣', main:'', soup:'', itemNote:''})} className="flex justify-between p-5 border border-gray-100 rounded-2xl active:bg-gray-50 bg-white shadow-sm transition">
                                 <div className="flex-1 pr-4">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        {item.type === '套餐' && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-md font-bold">套餐</span>}
-                                        <h3 className="text-lg font-bold text-gray-900">{item.name}</h3>
-                                    </div>
-                                    <p className="text-sm text-gray-400 line-clamp-1">{item.info}</p>
+                                    <div className="font-bold text-gray-800">{item.name}</div>
+                                    <div className="text-[11px] text-gray-400 mt-1 line-clamp-1">{item.info}</div>
                                 </div>
-                                <div className="text-orange-600 font-black text-2xl">${item.price}</div>
+                                <div className="text-orange-600 font-black text-lg">${item.price}</div>
                             </div>
                         ))}
                     </div>
 
-                    {cart.length > 0 && !showCart && !selectedItem && (
-                        <div className="fixed bottom-6 left-0 right-0 flex justify-center z-40 px-5 animate-slide-up">
-                            <div className="bg-gray-900/95 backdrop-blur-xl shadow-2xl rounded-full px-2 py-2 flex items-center justify-between w-full border border-gray-700">
-                                <div className="flex items-center pl-4 cursor-pointer" onClick={() => setShowCart(true)}>
-                                    <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-white relative">
-                                        <Icon name="ShoppingBag" size={20}/>
-                                        <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{cart.length}</span>
-                                    </div>
-                                    <div className="ml-4 text-xl font-bold text-white">${cart.reduce((s,i)=>s+i.displayPrice, 0)}</div>
+                    {showCart && (
+                        <div className="fixed inset-0 bg-black/60 z-[50] flex items-end p-4" onClick={() => setShowCart(false)}>
+                            <div className="bg-white w-full p-6 rounded-[2.5rem] space-y-4 max-h-[80vh] flex flex-col shadow-2xl" onClick={e=>e.stopPropagation()}>
+                                <div className="flex justify-between items-center border-b pb-4">
+                                    <h3 className="font-black text-xl">確認訂單 ({cart.length})</h3>
+                                    <button onClick={() => setShowCart(false)} className="text-gray-400 font-bold text-xl">✕</button>
                                 </div>
-                                <button onClick={() => setShowCart(true)} className="px-8 py-3.5 rounded-full font-bold text-sm text-white bg-orange-600 shadow-lg active:scale-95 transition-all">去結帳</button>
+                                <div className="flex-1 overflow-y-auto space-y-3 pr-1 no-scrollbar">
+                                    {cart.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                            <div className="flex-1">
+                                                <div className="font-bold text-gray-800">{item.name} x{item.quantity}</div>
+                                                <div className="text-[10px] text-gray-400 mt-1">{item.customs}</div>
+                                                <div className="text-orange-600 font-bold text-sm mt-1">${item.displayPrice}</div>
+                                            </div>
+                                            <button onClick={() => removeFromCart(idx)} className="ml-4 p-2 bg-red-50 text-red-500 rounded-full active:scale-90 transition shadow-sm">🗑️</button>
+                                        </div>
+                                    ))}
+                                    <div className="pt-4 border-t">
+                                        <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase">整單備註</p>
+                                        <textarea className="w-full p-4 bg-gray-50 rounded-2xl text-sm border outline-none" placeholder="輸入地址、外送時間或其他需求..." value={globalNote} onChange={e=>setGlobalNote(e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center font-black text-xl px-2">
+                                    <span>總金額</span>
+                                    <span className="text-orange-600">${cart.reduce((s,i)=>s+i.displayPrice, 0)}</span>
+                                </div>
+                                <button id="submit-btn" onClick={submitOrder} disabled={!shopState.isOpen} className={`w-full py-5 rounded-[1.8rem] font-black text-lg text-white shadow-xl active:scale-95 transition ${shopState.isOpen ? 'bg-orange-600' : 'bg-gray-300'}`}>
+                                    {shopState.isOpen ? '送出訂單' : '休息中'}
+                                </button>
                             </div>
+                        </div>
+                    )}
+
+                    {cart.length > 0 && !showCart && (
+                        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-5 bg-white border-t flex justify-between items-center z-40 shadow-up rounded-t-[2.5rem]">
+                            <div onClick={() => setShowCart(true)} className="cursor-pointer">
+                                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total Price</div>
+                                <div className="font-black text-3xl text-orange-600 flex items-center">
+                                    ${cart.reduce((s,i)=>s+i.displayPrice, 0)}
+                                    <span className="ml-3 text-[10px] bg-orange-100 px-2 py-1 rounded-full animate-pulse">檢視清單 ▾</span>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowCart(true)} className={`px-10 py-5 rounded-full font-black text-white shadow-xl transition-all ${shopState.isOpen ? 'bg-orange-600 active:scale-95 shadow-orange-100':'bg-gray-300 shadow-none'}`}>
+                                結帳
+                            </button>
                         </div>
                     )}
 
                     {selectedItem && (
-                        <div className="fixed inset-0 z-50 flex flex-col justify-end animate-fade-in">
-                            <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={()=>setSelectedItem(null)}></div>
-                            <div className="relative bg-white w-full rounded-t-[32px] shadow-2xl max-h-[90vh] flex flex-col animate-slide-up">
-                                <div className="p-6 flex justify-between items-center border-b border-gray-100">
-                                    <div><h3 className="text-2xl font-black text-gray-900">{selectedItem.name}</h3><div className="text-orange-600 font-bold text-xl">${selectedItem.basePrice}</div></div>
-                                    <button onClick={()=>setSelectedItem(null)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500"><Icon name="X" size={18}/></button>
+                        <div className="fixed inset-0 bg-black/60 flex items-end z-50 p-4" onClick={()=>setSelectedItem(null)}>
+                            <div className="bg-white w-full p-6 rounded-[2.5rem] space-y-6 max-h-[85vh] overflow-y-auto no-scrollbar" onClick={e=>e.stopPropagation()}>
+                                <div className="flex justify-between items-center border-b pb-4">
+                                    <h3 className="font-black text-xl">{selectedItem.name}</h3>
+                                    <span className="text-orange-600 font-black text-xl">${selectedItem.basePrice}</span>
                                 </div>
-                                <div className="p-6 overflow-y-auto no-scrollbar space-y-6 flex-1">
-                                    {selectedItem.type === "套餐" && (
-                                        <>
-                                            <div className="grid grid-cols-2 gap-3"><p className="col-span-2 text-sm font-bold">主食</p>{selectedItem.mainOptions.map(m=><button key={m} onClick={()=>setSelectedItem({...selectedItem, main:m})} className={`py-3 rounded-xl border-2 text-sm font-bold ${selectedItem.main===m?'border-orange-500 bg-orange-50 text-orange-700':'border-transparent bg-gray-50'}`}>{m}</button>)}</div>
-                                            <div className="grid grid-cols-2 gap-3"><p className="col-span-2 text-sm font-bold">湯品</p>{selectedItem.soupOptions.map(s=><button key={s} onClick={()=>setSelectedItem({...selectedItem, soup:s})} className={`py-3 rounded-xl border-2 text-sm font-bold ${selectedItem.soup===s?'border-orange-500 bg-orange-50 text-orange-700':'border-transparent bg-gray-50'}`}>{s}</button>)}</div>
-                                        </>
-                                    )}
-                                    
-                                    {/* 3. 辣度與加購選項改為漂亮的橫列排版 */}
-                                    {showExtras && (
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="text-sm font-bold text-gray-500 w-10 shrink-0">辣度</div>
-                                                <div className="flex flex-1 gap-2">
-                                                    {['不辣','小辣','大辣'].map(s=><button key={s} onClick={()=>setSelectedItem({...selectedItem, spicy:s})} className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${selectedItem.spicy===s?'border-orange-500 bg-orange-50 text-orange-700':'border-transparent bg-gray-50 text-gray-600'}`}>{s}</button>)}
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <div className="text-sm font-bold text-gray-500 w-10 shrink-0">加購</div>
-                                                <div className="flex flex-1 gap-2">
-                                                    <button onClick={()=>{const t=selectedItem.name.includes('麵')?'加麵':'加飯';const h=selectedItem.addons.includes(t);setSelectedItem({...selectedItem, addons:h?selectedItem.addons.filter(a=>a!==t):[...selectedItem.addons,t]})}} className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${selectedItem.addons.includes(selectedItem.name.includes('麵')?'加麵':'加飯')?'border-gray-800 bg-gray-800 text-white':'border-transparent bg-gray-50 text-gray-600'}`}>{selectedItem.name.includes('麵')?'加麵':'加飯'}</button>
-                                                    <button onClick={()=>{const h=selectedItem.addons.includes('加菜');setSelectedItem({...selectedItem, addons:h?selectedItem.addons.filter(a=>a!=='加菜'):[...selectedItem.addons, '加菜']})}} className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${selectedItem.addons.includes('加菜')?'border-gray-800 bg-gray-800 text-white':'border-transparent bg-gray-50 text-gray-600'}`}>加菜</button>
-                                                </div>
+
+                                {selectedItem.type === "套餐" && (
+                                    <div className="space-y-4 text-left">
+                                        <div className="space-y-2">
+                                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">主食選擇 (必選)</p>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {selectedItem.mainOptions && selectedItem.mainOptions.map(m => (
+                                                    <button key={m} onClick={()=>setSelectedItem({...selectedItem, main:m})} 
+                                                        className={`py-3 rounded-2xl text-xs font-bold transition-all ${selectedItem.main===m?'bg-blue-600 text-white shadow-md scale-95':'bg-gray-50 text-gray-400'}`}>
+                                                        {m}
+                                                    </button>
+                                                ))}
                                             </div>
                                         </div>
-                                    )}
-
-                                    <textarea placeholder="單品備註 (如：不要蔥、湯分開)" className="w-full p-4 bg-gray-50 rounded-2xl text-sm outline-none border border-gray-200" rows="2" value={selectedItem.itemNote||''} onChange={e=>setSelectedItem({...selectedItem, itemNote:e.target.value})} />
-                                </div>
-                                <div className="p-5 border-t border-gray-100">
-                                    <button onClick={addToCart} className="w-full py-4 bg-orange-600 text-white rounded-full font-bold text-lg shadow-lg active:scale-95 transition-transform flex justify-center items-center gap-2">
-                                        加入購物車 <span className="font-normal text-orange-200">|</span> ${(selectedItem.basePrice + ((selectedItem.addons||[]).length*10)) * selectedItem.quantity}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {showCart && (
-                        <div className="fixed inset-0 z-[60] flex flex-col justify-end animate-fade-in">
-                            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setShowCart(false)}></div>
-                            <div className="relative bg-gray-50 w-full rounded-t-[32px] shadow-2xl max-h-[95vh] flex flex-col animate-slide-up">
-                                <div className="bg-white rounded-t-[32px] px-6 py-5 flex justify-between items-center border-b border-gray-100">
-                                    <h3 className="font-black text-2xl text-gray-900">結帳確認</h3>
-                                    <button onClick={() => setShowCart(false)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500"><Icon name="X" size={18}/></button>
-                                </div>
-                                <div className="p-5 overflow-y-auto no-scrollbar space-y-4 flex-1">
-                                    <div className="bg-white rounded-[24px] p-2 shadow-sm border border-gray-100">
-                                        {cart.map((item, idx) => (
-                                            <div key={idx} className="flex justify-between items-center p-4 border-b border-gray-50 last:border-0">
-                                                <div className="flex-1"><div className="font-bold text-gray-900">{item.name} x{item.quantity}</div><div className="text-xs text-gray-400">{item.customs}</div><div className="text-orange-600 font-bold">${item.displayPrice}</div></div>
-                                                <button onClick={() => {const n=cart.filter((_,i)=>i!==idx); setCart(n); if(n.length===0) setShowCart(false);}} className="w-10 h-10 ml-3 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center"><Icon name="Trash2" size={16}/></button>
+                                        <div className="space-y-2">
+                                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">湯品 / 飲品</p>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {selectedItem.soupOptions && selectedItem.soupOptions.map(s => (
+                                                    <button key={s} onClick={()=>setSelectedItem({...selectedItem, soup:s})} 
+                                                        className={`py-3 rounded-2xl text-xs font-bold transition-all ${selectedItem.soup===s?'bg-blue-600 text-white shadow-md scale-95':'bg-gray-50 text-gray-400'}`}>
+                                                        {s}
+                                                    </button>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
-                                    <div className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 space-y-5">
-                                        <div>
-                                            <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase">預定取餐時間 <span className="text-red-500">*</span></p>
-                                            <div className="flex gap-3">
-                                                <input type="date" className="flex-1 p-3 bg-gray-50 rounded-xl text-sm border outline-none font-bold text-gray-700" value={pickupDate} onChange={e=>setPickupDate(e.target.value)} />
-                                                <input type="time" className="flex-1 p-3 bg-gray-50 rounded-xl text-sm border outline-none font-bold text-gray-700" value={pickupTime} onChange={e=>setPickupTime(e.target.value)} />
-                                            </div>
-                                        </div>
-                                        <hr className="border-gray-100" />
-                                        <div>
-                                            <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase">整單備註</p>
-                                            <textarea className="w-full p-4 bg-gray-50 rounded-xl text-sm border outline-none" placeholder="輸入需求..." value={globalNote} onChange={e=>setGlobalNote(e.target.value)} />
                                         </div>
                                     </div>
-                                </div>
-                                <div className="bg-white p-6 pb-8 rounded-t-3xl shadow-lg border-t border-gray-100">
-                                    <div className="flex justify-between items-center mb-4 px-2"><span className="font-bold text-gray-500">總計</span><span className="text-3xl font-black text-orange-600">${cart.reduce((s,i)=>s+i.displayPrice, 0)}</span></div>
-                                    <button id="submit-btn" onClick={submitOrder} disabled={!shopState.isOpen} className={`w-full py-4 rounded-full font-bold text-lg text-white shadow-lg active:scale-95 ${shopState.isOpen?'bg-gray-900':'bg-gray-300'}`}>
-                                        {shopState.isOpen ? '確認送出' : '休息中'}
-                                    </button>
-                                </div>
+                                )}
+
+                                {showExtras && (
+                                    <>
+                                        <div className="space-y-2 text-left">
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase">辣度選擇</p>
+                                            <div className="flex gap-2">
+                                                {['不辣','小辣','大辣'].map(s => (
+                                                    <button key={s} onClick={()=>setSelectedItem({...selectedItem, spicy:s})} className={`flex-1 py-3 rounded-xl text-xs font-bold transition ${selectedItem.spicy===s?'bg-orange-500 text-white shadow-md':'bg-gray-50'}`}>{s}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2 text-left">
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase">加購 (各+$10)</p>
+                                            <div className="flex gap-2">
+                                                <button onClick={()=>{
+                                                    const t = selectedItem.name.includes('麵') ? '加麵' : '加飯';
+                                                    const h = selectedItem.addons.includes(t);
+                                                    setSelectedItem({...selectedItem, addons: h ? selectedItem.addons.filter(a=>a!==t) : [...selectedItem.addons, t]})
+                                                }} className={`flex-1 py-3 rounded-xl text-xs font-bold transition ${selectedItem.addons.includes(selectedItem.name.includes('麵')?'加麵':'加飯')?'bg-slate-700 text-white shadow-md':'bg-gray-50'}`}>
+                                                    {selectedItem.name.includes('麵') ? '加麵' : '加飯'}
+                                                </button>
+                                                <button onClick={()=>{
+                                                    const h = selectedItem.addons.includes('加菜');
+                                                    setSelectedItem({...selectedItem, addons: h ? selectedItem.addons.filter(a=>a!=='加菜') : [...selectedItem.addons, '加菜']})
+                                                }} className={`flex-1 py-3 rounded-xl text-xs font-bold transition ${selectedItem.addons.includes('加菜')?'bg-slate-700 text-white shadow-md':'bg-gray-50'}`}>加菜</button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                <input type="text" placeholder="單品備註" className="w-full p-4 bg-gray-50 rounded-2xl text-sm outline-none border border-gray-100" value={selectedItem.itemNote || ''} onChange={e=>setSelectedItem({...selectedItem, itemNote:e.target.value})} />
+                                <button onClick={addToCart} className="w-full py-5 bg-orange-600 text-white rounded-[1.8rem] font-black text-lg shadow-xl active:scale-95 transition">加入購物車</button>
                             </div>
                         </div>
                     )}
@@ -460,21 +407,22 @@
                     {adminStep > 0 && (
                         <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-8 backdrop-blur-md" onClick={() => setAdminStep(0)}>
                             <div className="bg-white w-full p-8 rounded-[2.5rem] text-center space-y-5" onClick={e=>e.stopPropagation()}>
-                                <h2 className="font-black text-2xl text-gray-900">後台管理</h2>
+                                <h2 className="font-black text-xl text-gray-800">管理中心</h2>
                                 {isUpdating ? (
-                                    <div className="py-8 space-y-4 text-orange-600 font-bold">
+                                    <div className="py-10 space-y-4 text-orange-600 font-bold">
                                         <div className="animate-spin text-4xl inline-block">⚙️</div>
                                         <p>資料更新中...</p>
                                     </div>
                                 ) : adminStep === 1 ? (
                                     <div className="space-y-4">
-                                        <input type="password" placeholder="密碼" className="w-full p-4 bg-gray-50 rounded-xl text-center text-lg outline-none border" value={inputPwd} onChange={e=>setInputPwd(e.target.value)} />
-                                        <button onClick={()=>setAdminStep(2)} className="w-full py-4 bg-gray-900 text-white rounded-xl font-bold text-lg">登入</button>
+                                        <input type="password" placeholder="管理密碼" className="w-full p-4 bg-gray-50 rounded-2xl text-center border outline-none" value={inputPwd} onChange={e=>setInputPwd(e.target.value)} />
+                                        <button onClick={()=>setAdminStep(2)} className="w-full py-4 bg-orange-600 text-white rounded-2xl font-black">進入</button>
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        <button onClick={()=>toggleStatus('Y')} className="w-full py-4 bg-emerald-50 text-emerald-700 font-bold rounded-xl border border-emerald-200">開啟營業</button>
-                                        <button onClick={()=>toggleStatus('N')} className="w-full py-4 bg-rose-50 text-rose-700 font-bold rounded-xl border border-rose-200">關閉營業</button>
+                                        <button onClick={()=>toggleStatus('Y')} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black">開啟營業</button>
+                                        <button onClick={()=>toggleStatus('N')} className="w-full py-5 bg-red-600 text-white rounded-2xl font-black">手動關店</button>
+                                        <button onClick={() => setAdminStep(0)} className="text-gray-400 text-sm font-bold pt-4 block w-full text-center">取消</button>
                                     </div>
                                 )}
                             </div>
@@ -489,5 +437,3 @@
     </script>
 </body>
 </html>
-
-
