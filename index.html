@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -12,29 +12,29 @@
     <style>
         .shadow-up { box-shadow: 0 -5px 20px rgba(0,0,0,0.08); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        body { -webkit-tap-highlight-color: transparent; }
+        body { -webkit-tap-highlight-color: transparent; font-family: sans-serif; }
+        /* 讀取畫面 */
+        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #ea580c; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
-    <div id="root"></div>
+    
+    <div id="loading">
+        <div class="spinner"></div>
+        <div class="mt-4 text-gray-500 font-bold" id="loading-text">連線至資料庫中...</div>
+        <button onclick="window.location.reload()" style="margin-top:20px; font-size:12px; color:#aaa; text-decoration:underline;">點我重新整理</button>
+    </div>
+    
+    <div id="root" style="display:none;"></div>
 
     <script type="text/babel">
         const { useState, useEffect } = React;
-        
-        let initMenu = { combos: [], items: [] };
-        let initShop = { name: "載入中...", isOpen: false, notices: [] };
-
-        try {
-            const serverMenu = <?!= menuData ?>;
-            const serverShop = <?!= shopInfo ?>;
-            if (serverMenu) initMenu = serverMenu;
-            if (serverShop) initShop = serverShop;
-        } catch (e) {
-            console.log("本地測試模式");
-        }
 
         const App = () => {
-            const [shopState, setShopState] = useState(initShop);
+            const [shopState, setShopState] = useState({ name: "連線中...", isOpen: false, notices: [] });
+            const [menuData, setMenuData] = useState({ combos: [], items: [] });
             const [cart, setCart] = useState([]);
             const [selectedItem, setSelectedItem] = useState(null);
             const [showCart, setShowCart] = useState(false); 
@@ -44,7 +44,7 @@
             const [globalNote, setGlobalNote] = useState('');
             const [isInClient, setIsInClient] = useState(false);
 
-            // ★ 請確認此 LIFF ID 與後台一致
+            // ★ 確認 ID 與 GAS URL 無誤
             const LIFF_ID = "2008979082-w7Tz842F"; 
             const GAS_URL = "https://script.google.com/macros/s/AKfycbw7GHuyai-Nik51gf0prMzdtCC9bRaYnLl2DwpU5tAapcP8aaMP0mi5-2t1mI_tkC4CXA/exec";
 
@@ -52,20 +52,38 @@
                 if (window.liff) {
                     liff.init({ liffId: LIFF_ID })
                         .then(() => {
-                            if (!liff.isLoggedIn()) {
-                                liff.login();
+                            if (!liff.isInClient()) {
+                                setIsInClient(false);
+                            } else {
+                                setIsInClient(true);
+                                if (!liff.isLoggedIn()) liff.login();
                             }
-                            setIsInClient(liff.isInClient());
                         })
-                        .catch(e => {
-                            console.error(e);
-                        }); 
+                        .catch(e => console.error("LIFF 錯誤:", e)); 
                 }
+
+                // Vercel 專用寫法：透過 fetch 動態抓取菜單，避免白畫面
+                fetch(GAS_URL + "?action=getMenu")
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === "success") {
+                            setShopState(data.shop);
+                            setMenuData(data.menu);
+                            // 資料抓取成功後，關閉 loading 顯示主畫面
+                            document.getElementById('loading').style.display = 'none';
+                            document.getElementById('root').style.display = 'block';
+                        } else {
+                            document.getElementById('loading-text').innerText = "讀取失敗：" + JSON.stringify(data);
+                        }
+                    })
+                    .catch(e => {
+                        document.getElementById('loading-text').innerText = "無法連線至 Google，請檢查網址設定";
+                    });
             }, []);
 
             const forceCopy = (text) => {
                 if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(text).catch(err => console.log("Async copy failed", err));
+                    navigator.clipboard.writeText(text).catch(err => {});
                 }
                 try {
                     const textArea = document.createElement("textarea");
@@ -132,7 +150,7 @@
                             ]
                         },
                         item.customs && { 
-                            type: "text", text: `└ ${item.customs}`, size: "xs", color: "#aaaaaa", wrap: true, margin: "none", offsetStart: "md"
+                            type: "text", text: `└ ${item.customs}`, size: "xs", color: "#aaaaaa", wrap: true, margin: "none"
                         }
                     ].filter(Boolean)
                 }));
@@ -170,7 +188,7 @@
                         contents: [
                             {
                                 type: "button", style: "primary", color: "#ea580c", height: "sm",
-                                action: { type: "uri", label: "查看訂單詳情", uri: "https://liff.line.me/" + LIFF_ID }
+                                action: { type: "uri", label: "查看訂單", uri: "https://liff.line.me/" + LIFF_ID }
                             }
                         ]
                     }
@@ -199,25 +217,23 @@
                     });
                     
                     if (liff.isInClient()) {
-                        // 嘗試直接傳送
                         liff.sendMessages([{ type: 'flex', altText: `🍱 新訂單 $${total}`, contents: flexMsg }])
                             .then(() => {
                                 liff.closeWindow();
                             })
                             .catch(error => {
-                                // 🚨 關鍵：跳出具體的錯誤代碼！
-                                alert("【請截圖回報工程師】\n直接傳送失敗：" + error.message + "\n\n(這通常是因為 chat_message.write 權限未打勾，或是您從非聊天室的地方點擊網址)");
-                                
                                 if (liff.isApiAvailable('shareTargetPicker')) {
                                     liff.shareTargetPicker([{ type: 'flex', altText: `🍱 新訂單 $${total}`, contents: flexMsg }])
                                         .then(res => {
                                             if (res) liff.closeWindow();
                                             else {
-                                                alert("✅ 訂單已送出至後台！");
-                                                setCart([]);
-                                                setShowCart(false);
+                                                alert("✅ 訂單已送出至後台！\n(您取消了傳送卡片)");
+                                                setCart([]); setShowCart(false);
                                             }
                                         });
+                                } else {
+                                    alert("✅ 訂單已送出至後台！\n\n(因權限限制無法傳送卡片，訂單內容「已幫您複製」，請貼上到聊天室)");
+                                    liff.closeWindow();
                                 }
                             });
                     } else {
@@ -268,13 +284,20 @@
                         <button onClick={() => setAdminStep(1)} className="absolute top-8 right-6 text-gray-300 active:text-gray-600">⚙️</button>
                     </header>
 
+                    {/* 📢 訂餐須知 (強制分兩行版本) */}
                     <div className="m-4 p-5 bg-orange-50 rounded-2xl border border-orange-100 text-[13px] text-orange-800 leading-relaxed shadow-sm">
                         <p className="font-black mb-1">📢 訂餐須知</p>
-                        {shopState.notices && shopState.notices.map((n, i) => <div key={i}>• {n.trim()}</div>)}
+                        {shopState.notices && shopState.notices.length > 0 && shopState.notices.join('').trim() !== ''
+                            ? shopState.notices.map((n, i) => n.trim() ? <div key={i}>• {n.trim()}</div> : null)
+                            : <div>
+                                <div>• 僅提供現金支付，取貨時付款</div>
+                                <div>• 自取地點：京品茶與咖啡農場</div>
+                              </div>
+                        }
                     </div>
 
                     <div className="p-4 space-y-4">
-                        {[...initMenu.combos, ...initMenu.items].map(item => (
+                        {[...menuData.combos, ...menuData.items].map(item => (
                             <div key={item.id} onClick={()=>setSelectedItem({...item, quantity:1, basePrice:item.price, addons:[], spicy:'不辣', main:'', soup:'', itemNote:''})} className="flex justify-between p-5 border border-gray-100 rounded-2xl active:bg-gray-50 bg-white shadow-sm transition">
                                 <div className="flex-1 pr-4">
                                     <div className="font-bold text-gray-800">{item.name}</div>
@@ -305,7 +328,7 @@
                                     ))}
                                     <div className="pt-4 border-t">
                                         <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase">整單備註</p>
-                                        <textarea className="w-full p-4 bg-gray-50 rounded-2xl text-sm border outline-none" placeholder="輸入地址、外送時間或其他需求..." value={globalNote} onChange={e=>setGlobalNote(e.target.value)} />
+                                        <textarea className="w-full p-4 bg-gray-50 rounded-2xl text-sm border outline-none" placeholder="輸入需求..." value={globalNote} onChange={e=>setGlobalNote(e.target.value)} />
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-center font-black text-xl px-2">
@@ -398,12 +421,13 @@
                                     </>
                                 )}
 
-                                <input type="text" placeholder="單品備註" className="w-full p-4 bg-gray-50 rounded-2xl text-sm outline-none border border-gray-100" value={selectedItem.itemNote || ''} onChange={e=>setSelectedItem({...selectedItem, itemNote:e.target.value})} />
+                                <input type="text" placeholder="單品備註 (如：不要蔥、湯分開)" className="w-full p-4 bg-gray-50 rounded-2xl text-sm outline-none border border-gray-100" value={selectedItem.itemNote || ''} onChange={e=>setSelectedItem({...selectedItem, itemNote:e.target.value})} />
                                 <button onClick={addToCart} className="w-full py-5 bg-orange-600 text-white rounded-[1.8rem] font-black text-lg shadow-xl active:scale-95 transition">加入購物車</button>
                             </div>
                         </div>
                     )}
 
+                    {/* 管理中心 */}
                     {adminStep > 0 && (
                         <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-8 backdrop-blur-md" onClick={() => setAdminStep(0)}>
                             <div className="bg-white w-full p-8 rounded-[2.5rem] text-center space-y-5" onClick={e=>e.stopPropagation()}>
@@ -437,5 +461,3 @@
     </script>
 </body>
 </html>
-
-
