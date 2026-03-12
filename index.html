@@ -213,7 +213,7 @@
             const submitOrder = async () => {
                 if (cart.length === 0) return;
                 
-                // 🌟 新增：取餐時間與 15 分鐘防呆檢查
+                // 🌟 取餐時間與 15 分鐘防呆檢查
                 if (!pickupDate || !pickupTime) { 
                     alert("❌ 請選擇「預定取餐的日期與時間」！"); 
                     return; 
@@ -253,6 +253,9 @@
                                 liff.closeWindow();
                             })
                             .catch(error => {
+                                // 🚨 終極抓蟲：把真實錯誤印出來給我們看！
+                                alert(`【系統提示】自動傳送失敗！\n\n原因: ${error.message}\n\n👉 將為您開啟手動傳送視窗...`);
+                                
                                 if (liff.isApiAvailable('shareTargetPicker')) {
                                     liff.shareTargetPicker([{ type: 'flex', altText: `🍱 新訂單 $${total}`, contents: flexMsg }])
                                         .then(res => {
