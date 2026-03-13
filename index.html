@@ -13,7 +13,6 @@
         .shadow-up { box-shadow: 0 -5px 20px rgba(0,0,0,0.08); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         body { -webkit-tap-highlight-color: transparent; font-family: sans-serif; }
-        /* 讀取畫面 */
         #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #ea580c; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -42,40 +41,49 @@
             const [isUpdating, setIsUpdating] = useState(false);
             const [inputPwd, setInputPwd] = useState('');
             const [globalNote, setGlobalNote] = useState('');
+            
+            // 狀態偵測
             const [isInClient, setIsInClient] = useState(false);
+            const [debugInfo, setDebugInfo] = useState('等待初始化...');
 
-            // 新增：日期與時間狀態
             const tzOffset = (new Date()).getTimezoneOffset() * 60000; 
             const localISODate = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 10);
             const [pickupDate, setPickupDate] = useState(localISODate);
             const [pickupTime, setPickupTime] = useState('');
 
-            // ★ 確認 ID 與 GAS URL 無誤
-            const LIFF_ID = "2008979082-t3DLJm7hF"; 
+            // ★ 確認 ID 已經是您最新的那組
+            const LIFF_ID = "2008979082-t3DLJm7h"; 
             const GAS_URL = "https://script.google.com/macros/s/AKfycbw7GHuyai-Nik51gf0prMzdtCC9bRaYnLl2DwpU5tAapcP8aaMP0mi5-2t1mI_tkC4CXA/exec";
 
             useEffect(() => { 
                 if (window.liff) {
+                    setDebugInfo('開始初始化...');
                     liff.init({ liffId: LIFF_ID })
                         .then(() => {
-                            if (!liff.isInClient()) {
-                                setIsInClient(false);
-                            } else {
-                                setIsInClient(true);
-                                if (!liff.isLoggedIn()) liff.login();
+                            const client = liff.isInClient();
+                            const loggedIn = liff.isLoggedIn();
+                            setIsInClient(client);
+                            setDebugInfo(`成功! inClient:${client}, loggedIn:${loggedIn}`);
+                            
+                            // 在 LINE 內部如果沒登入，強制登入拿通行證
+                            if (client && !loggedIn) {
+                                liff.login();
                             }
                         })
-                        .catch(e => console.error("LIFF 錯誤:", e)); 
+                        .catch(e => {
+                            console.error("LIFF 錯誤:", e);
+                            setIsInClient(false);
+                            // 將錯誤直接印在畫面上！
+                            setDebugInfo(`⚠️ 錯誤: ${e.code} - ${e.message}`);
+                        }); 
                 }
 
-                // Vercel 專用寫法：透過 fetch 動態抓取菜單，避免白畫面
                 fetch(GAS_URL + "?action=getMenu")
                     .then(res => res.json())
                     .then(data => {
                         if (data.status === "success") {
                             setShopState(data.shop);
                             setMenuData(data.menu);
-                            // 資料抓取成功後，關閉 loading 顯示主畫面
                             document.getElementById('loading').style.display = 'none';
                             document.getElementById('root').style.display = 'block';
                         } else {
@@ -203,7 +211,7 @@
                         contents: [
                             {
                                 type: "button", style: "primary", color: "#ea580c", height: "sm",
-                                action: { type: "uri", label: "查看訂單", uri: "https://liff.line.me/" + LIFF_ID }
+                                action: { type: "uri", label: "查看訂單詳情", uri: "https://liff.line.me/" + LIFF_ID }
                             }
                         ]
                     }
@@ -213,7 +221,6 @@
             const submitOrder = async () => {
                 if (cart.length === 0) return;
                 
-                // 🌟 取餐時間與 15 分鐘防呆檢查
                 if (!pickupDate || !pickupTime) { 
                     alert("❌ 請選擇「預定取餐的日期與時間」！"); 
                     return; 
@@ -247,15 +254,12 @@
                         body: JSON.stringify({ cart, total, globalNote: backendNote, clientTime, action:"submit" }) 
                     });
                     
-                    if (liff.isInClient()) {
+                    if (liff.isInClient() && liff.isLoggedIn()) {
                         liff.sendMessages([{ type: 'flex', altText: `🍱 新訂單 $${total}`, contents: flexMsg }])
                             .then(() => {
                                 liff.closeWindow();
                             })
                             .catch(error => {
-                                // 🚨 終極抓蟲：把真實錯誤印出來給我們看！
-                                alert(`【系統提示】自動傳送失敗！\n\n原因: ${error.message}\n\n👉 將為您開啟手動傳送視窗...`);
-                                
                                 if (liff.isApiAvailable('shareTargetPicker')) {
                                     liff.shareTargetPicker([{ type: 'flex', altText: `🍱 新訂單 $${total}`, contents: flexMsg }])
                                         .then(res => {
@@ -309,6 +313,11 @@
 
             return (
                 <div className="max-w-md mx-auto min-h-screen pb-32 bg-white relative">
+                    {/* 診斷狀態列 */}
+                    <div className="bg-blue-100 p-2 text-center text-xs text-blue-800 break-words font-bold border-b border-blue-200">
+                        {debugInfo} | 版本: v3.13
+                    </div>
+
                     <header className="p-8 border-b text-center relative">
                         <h1 className="text-2xl font-black text-gray-800">{shopState.name}</h1>
                         <div className={`inline-block px-4 py-1 rounded-full text-[10px] text-white mt-2 font-bold transition-colors duration-300 ${shopState.isOpen ? 'bg-green-500':'bg-red-500'}`}>
@@ -318,7 +327,7 @@
                         <button onClick={() => setAdminStep(1)} className="absolute top-8 right-6 text-gray-300 active:text-gray-600">⚙️</button>
                     </header>
 
-                    {/* 📢 訂餐須知 (強制分兩行版本) */}
+                    {/* 📢 訂餐須知 */}
                     <div className="m-4 p-5 bg-orange-50 rounded-2xl border border-orange-100 text-[13px] text-orange-800 leading-relaxed shadow-sm">
                         <p className="font-black mb-1">📢 訂餐須知</p>
                         {shopState.notices && shopState.notices.length > 0 && shopState.notices.join('').trim() !== ''
@@ -500,4 +509,3 @@
     </script>
 </body>
 </html>
-
