@@ -135,8 +135,9 @@
                 setIsUpdating(false);
             };
 
-            const getTextOrder = (cart, total, note, timeStr, pDate, pTime) => {
-                let msg = `📋 新訂單 #${new Date().getTime().toString().slice(-4)}\n`;
+            // 🌟 1. 接收 orderId 參數
+            const getTextOrder = (cart, total, note, timeStr, pDate, pTime, orderId) => {
+                let msg = `📋 新訂單 #${orderId}\n`;
                 msg += `⏰ 下單時間：${timeStr}\n`; 
                 msg += `🕒 取餐時間：${pDate} ${pTime}\n`;
                 msg += `----------------\n`;
@@ -150,9 +151,8 @@
                 return msg;
             };
 
-            const getFlexMessage = (cart, total, note, timeStr, pDate, pTime) => {
-                const orderId = new Date().getTime().toString().slice(-6);
-                
+            // 🌟 2. 接收 orderId 參數，並將底部按鈕改為確認功能
+            const getFlexMessage = (cart, total, note, timeStr, pDate, pTime, orderId) => {
                 const itemsRows = cart.map(item => ({
                     type: "box", layout: "vertical", margin: "md",
                     contents: [
@@ -175,7 +175,8 @@
                     body: {
                         type: "box", layout: "vertical",
                         contents: [
-                            { type: "text", text: "新訂單 (自取)", weight: "bold", color: "#0044aa", size: "xl", align: "center" },
+                            // 🌟 將這裡的 "新訂單 (自取)" 改為 "新訂單"
+                            { type: "text", text: "新訂單", weight: "bold", color: "#0044aa", size: "xl", align: "center" },
                             { type: "text", text: orderId, weight: "bold", size: "3xl", align: "center", margin: "md", color: "#333333" },
                             { type: "text", text: `訂單編號：#${orderId}`, size: "xs", color: "#aaaaaa", align: "center" },
                             { type: "separator", margin: "lg" },
@@ -210,8 +211,8 @@
                         type: "box", layout: "vertical", spacing: "sm",
                         contents: [
                             {
-                                type: "button", style: "primary", color: "#ea580c", height: "sm",
-                                action: { type: "uri", label: "查看訂單詳情", uri: "https://liff.line.me/" + LIFF_ID }
+                                type: "button", style: "primary", color: "#10b981", height: "sm",
+                                action: { type: "uri", label: "👨‍🍳 店家按此確認", uri: `${GAS_URL}?action=confirmOrder&orderId=${orderId}` }
                             }
                         ]
                     }
@@ -239,10 +240,14 @@
                 const originalText = btn ? btn.innerText : "";
                 if(btn) { btn.innerText = "處理中..."; btn.disabled = true; }
 
+                // 🌟 3. 在這裡統一產生訂單編號
+                const orderId = new Date().getTime().toString().slice(-6);
                 const clientTime = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
                 const total = cart.reduce((s, i) => s + i.displayPrice, 0);
-                const flexMsg = getFlexMessage(cart, total, globalNote, clientTime, pickupDate, pickupTime);
-                const textMsg = getTextOrder(cart, total, globalNote, clientTime, pickupDate, pickupTime);
+                
+                // 🌟 4. 傳入 orderId
+                const flexMsg = getFlexMessage(cart, total, globalNote, clientTime, pickupDate, pickupTime, orderId);
+                const textMsg = getTextOrder(cart, total, globalNote, clientTime, pickupDate, pickupTime, orderId);
 
                 forceCopy(textMsg);
                 
@@ -251,7 +256,8 @@
                     await fetch(GAS_URL, { 
                         method: 'POST', 
                         mode: 'no-cors', 
-                        body: JSON.stringify({ cart, total, globalNote: backendNote, clientTime, action:"submit" }) 
+                        // 🌟 5. 將 orderId 傳送給後台
+                        body: JSON.stringify({ cart, total, globalNote: backendNote, clientTime, orderId: orderId, action:"submit" }) 
                     });
                     
                     if (liff.isInClient() && liff.isLoggedIn()) {
