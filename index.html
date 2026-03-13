@@ -305,24 +305,25 @@
 
             return (
                 <div className="max-w-md mx-auto min-h-screen bg-slate-50 relative pb-24 shadow-xl">
+                    {/* 1. 店名跟營業時間置中 */}
                     <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100 px-6 pt-8 pb-4">
-                        <div className="flex justify-between items-center">
-                            <div className="flex flex-col">
-                                <span className={`text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1 ${shopState.isOpen ? 'text-green-600' : 'text-red-500'}`}>
-                                    <Icon name="Clock" size={12} /> 
-                                    {shopState.isOpen ? '營業中 Open' : '休息中 Closed'}
-                                </span>
-                                <h1 className="text-2xl font-black text-gray-900 tracking-tight">{shopState.name}</h1>
-                            </div>
-                            <button onClick={() => setAdminStep(1)} className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition-colors border border-gray-200">
+                        <div className="flex flex-col items-center relative">
+                            <span className={`text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1 ${shopState.isOpen ? 'text-green-600' : 'text-red-500'}`}>
+                                <Icon name="Clock" size={12} /> 
+                                {shopState.isOpen ? '營業中 Open' : '休息中 Closed'}
+                            </span>
+                            <h1 className="text-2xl font-black text-gray-900 tracking-tight text-center">{shopState.name}</h1>
+                            
+                            {/* 設定按鈕移到右上角 */}
+                            <button onClick={() => setAdminStep(1)} className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition-colors border border-gray-200">
                                 <Icon name="Settings" size={18} />
                             </button>
                         </div>
-                        {!isInClient && <div className="text-[10px] text-gray-400 mt-2 bg-gray-100 px-2 py-1 rounded-md inline-block">(外部瀏覽器模式)</div>}
+                        {!isInClient && <div className="text-[10px] text-gray-400 mt-2 bg-gray-100 px-2 py-1 rounded-md inline-block text-center w-full">(外部瀏覽器模式)</div>}
                     </header>
 
                     {shopState.notices && shopState.notices.length > 0 && (
-                        <div className="mx-5 mt-5 mb-2 bg-orange-50 border border-orange-100 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
+                        <div className="mx-5 mt-5 mb-6 bg-orange-50 border border-orange-100 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
                             <div className="text-orange-500 mt-0.5 shrink-0"><Icon name="Volume2" size={18} /></div>
                             <div className="text-sm text-orange-800 leading-relaxed font-medium">
                                 {shopState.notices.map((n, i) => <div key={i} className="mb-1">{n.trim()}</div>)}
@@ -330,19 +331,7 @@
                         </div>
                     )}
 
-                    <div className="px-5 my-6 sticky top-[85px] z-20">
-                        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                            <button onClick={() => setActiveCategory('all')} className={`flex items-center gap-2 px-5 py-3 rounded-2xl whitespace-nowrap font-bold text-sm transition-all shadow-sm ${activeCategory==='all' ? 'bg-orange-600 text-white transform scale-105' : 'bg-white text-gray-500 border border-gray-100'}`}>
-                                <Icon name="LayoutGrid" size={18} /> 全部餐點
-                            </button>
-                            <button onClick={() => setActiveCategory('combo')} className={`flex items-center gap-2 px-5 py-3 rounded-2xl whitespace-nowrap font-bold text-sm transition-all shadow-sm ${activeCategory==='combo' ? 'bg-orange-600 text-white transform scale-105' : 'bg-white text-gray-500 border border-gray-100'}`}>
-                                <Icon name="Package" size={18} /> 超值套餐
-                            </button>
-                            <button onClick={() => setActiveCategory('single')} className={`flex items-center gap-2 px-5 py-3 rounded-2xl whitespace-nowrap font-bold text-sm transition-all shadow-sm ${activeCategory==='single' ? 'bg-orange-600 text-white transform scale-105' : 'bg-white text-gray-500 border border-gray-100'}`}>
-                                <Icon name="Coffee" size={18} /> 單點美味
-                            </button>
-                        </div>
-                    </div>
+                    {/* 2. 移除分類選單 */}
 
                     <div className="px-5 space-y-4">
                         {displayItems.map(item => (
@@ -355,7 +344,8 @@
                                     </div>
                                     <p className="text-sm text-gray-400 line-clamp-2 mt-1">{item.info}</p>
                                 </div>
-                                <div className="text-orange-600 font-black text-2xl bg-orange-50 px-3 py-1.5 rounded-xl group-hover:bg-orange-600 group-hover:text-white transition-colors">
+                                {/* 3. 價錢顏色不要有外框 */}
+                                <div className="text-orange-600 font-black text-2xl">
                                     ${item.price}
                                 </div>
                             </div>
@@ -556,4 +546,3 @@
     </script>
 </body>
 </html>
-
