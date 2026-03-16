@@ -102,6 +102,7 @@
                 } catch (err) {}
             };
 
+            // 🌟 產生完美卡片 (加入空值防呆機制，再也不會 INVALID_MESSAGE)
             const getFlexMessage = (cart, total, note, pDate, pTime, orderId) => {
                 const itemsRows = cart.map(item => ({
                     type: "box", layout: "vertical", margin: "md",
@@ -109,50 +110,56 @@
                         {
                             type: "box", layout: "horizontal",
                             contents: [
-                                { type: "text", text: item.name, size: "md", weight: "bold", color: "#333333", flex: 6, wrap: true },
-                                { type: "text", text: `x${item.quantity}`, size: "sm", color: "#666666", align: "center", flex: 2 },
-                                { type: "text", text: `$${item.displayPrice}`, size: "sm", weight: "bold", color: "#ea580c", align: "end", flex: 3 }
+                                // 🌟 防呆：如果名字空白，就強制顯示 "超值套餐"
+                                { type: "text", text: String(item.name || "超值套餐").trim() || "超值套餐", size: "md", weight: "bold", color: "#333333", flex: 6, wrap: true },
+                                { type: "text", text: `x${item.quantity || 1}`, size: "sm", color: "#666666", align: "center", flex: 2 },
+                                { type: "text", text: `$${item.displayPrice || 0}`, size: "sm", weight: "bold", color: "#ea580c", align: "end", flex: 3 }
                             ]
                         },
-                        item.customs && { type: "text", text: `└ ${item.customs}`, size: "xs", color: "#9ca3af", wrap: true, margin: "xs" }
+                        (item.customs && item.customs.trim() !== '') ? { type: "text", text: `└ ${item.customs}`, size: "xs", color: "#9ca3af", wrap: true, margin: "sm" } : null
                     ].filter(Boolean)
                 }));
+
+                const contentsArray = [
+                    { type: "text", text: "新訂單", weight: "bold", color: "#0044aa", size: "xl", align: "center" },
+                    { type: "text", text: String(orderId), weight: "bold", size: "3xl", align: "center", margin: "md", color: "#333333" },
+                    { type: "text", text: `訂單編號：#${orderId}`, size: "xs", color: "#aaaaaa", align: "center" },
+                    { type: "separator", margin: "lg" },
+                    { 
+                        type: "box", layout: "vertical", margin: "md", backgroundColor: "#fff7ed", cornerRadius: "md", paddingAll: "md",
+                        contents: [
+                            { type: "text", text: "🕒 預定取餐時間", size: "xs", color: "#ea580c", weight: "bold" },
+                            { type: "text", text: `${pDate} ${pTime}`, size: "lg", color: "#333333", weight: "bold", margin: "sm" }
+                        ]
+                    },
+                    { type: "separator", margin: "lg" },
+                    { type: "box", layout: "vertical", margin: "lg", contents: itemsRows },
+                    { type: "separator", margin: "lg", color: "#e5e7eb" },
+                    {
+                        type: "box", layout: "horizontal", margin: "lg",
+                        contents: [
+                            { type: "text", text: "總計", size: "md", color: "#6b7280", weight: "bold", gravity: "bottom" },
+                            { type: "text", text: `$${total}`, size: "2xl", color: "#ea580c", align: "end", weight: "bold" }
+                        ]
+                    }
+                ];
+
+                // 🌟 備註防呆：如果只有打空白鍵，就不會產生空區塊導致當機
+                if (note && note.trim() !== '') {
+                    contentsArray.push({ 
+                        type: "box", layout: "vertical", margin: "lg", backgroundColor: "#f3f4f6", cornerRadius: "md", paddingAll: "md",
+                        contents: [
+                            { type: "text", text: "備註事項：", size: "xs", color: "#6b7280", weight: "bold" },
+                            { type: "text", text: String(note).trim(), size: "sm", color: "#374151", wrap: true, margin: "sm" }
+                        ]
+                    });
+                }
 
                 return {
                     type: "bubble",
                     body: {
                         type: "box", layout: "vertical",
-                        contents: [
-                            // ★ 拿掉自取字樣
-                            { type: "text", text: "新訂單", weight: "bold", color: "#0044aa", size: "xl", align: "center" },
-                            { type: "text", text: orderId, weight: "bold", size: "3xl", align: "center", margin: "md", color: "#333333" },
-                            { type: "text", text: `訂單編號：#${orderId}`, size: "xs", color: "#aaaaaa", align: "center" },
-                            { type: "separator", margin: "lg" },
-                            { 
-                                type: "box", layout: "vertical", margin: "md", backgroundColor: "#fff7ed", cornerRadius: "md", paddingAll: "md",
-                                contents: [
-                                    { type: "text", text: "🕒 預定取餐時間", size: "xs", color: "#ea580c", weight: "bold" },
-                                    { type: "text", text: `${pDate} ${pTime}`, size: "lg", color: "#333333", weight: "bold", margin: "sm" }
-                                ]
-                            },
-                            { type: "separator", margin: "lg" },
-                            { type: "box", layout: "vertical", margin: "lg", contents: itemsRows },
-                            { type: "separator", margin: "lg", color: "#e5e7eb" },
-                            {
-                                type: "box", layout: "horizontal", margin: "lg",
-                                contents: [
-                                    { type: "text", text: "總計", size: "md", color: "#6b7280", weight: "bold", gravity: "bottom" },
-                                    { type: "text", text: `$${total}`, size: "2xl", color: "#ea580c", align: "end", weight: "bold" }
-                                ]
-                            },
-                            note ? { 
-                                type: "box", layout: "vertical", margin: "lg", backgroundColor: "#f3f4f6", cornerRadius: "md", paddingAll: "md",
-                                contents: [
-                                    { type: "text", text: "備註事項：", size: "xs", color: "#6b7280", weight: "bold" },
-                                    { type: "text", text: note, size: "sm", color: "#374151", wrap: true, margin: "xs" }
-                                ]
-                            } : { type: "spacer" }
-                        ]
+                        contents: contentsArray
                     },
                     footer: {
                         type: "box", layout: "vertical", spacing: "sm",
